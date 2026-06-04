@@ -1,0 +1,327 @@
+<style>
+/* ── 设计变量 ── */
+:root {
+    --navy: #0B3B60;
+    --navy-light: #0f4a75;
+    --teal: #3BC8B4;
+    --teal-dark: #2da897;
+    --green: #00A67E;
+    --bg: #F9FAFB;
+    --card: #FFFFFF;
+    --line: #E5E7EB;
+    --text: #111827;
+    --muted: #6B7280;
+    --faint: #9CA3AF;
+    --danger: #EF4444;
+    --code-bg: #0E141F;
+}
+
+/* ── 全局 ── */
+.stApp {
+    background: var(--bg);
+    color: var(--text);
+    font-family: "HarmonyOS Sans SC", "Noto Sans SC", "Inter", "PingFang SC", sans-serif;
+}
+
+.block-container {
+    max-width: 1180px;
+    padding-top: 1.5rem;
+    padding-bottom: 3rem;
+}
+
+/* ── 语言切换按钮 ── */
+.lang-toggle button {
+    background: var(--card) !important;
+    color: var(--navy) !important;
+    border: 1.5px solid var(--line) !important;
+    border-radius: 8px !important;
+    font-weight: 600 !important;
+    font-size: 0.82rem !important;
+    padding: 4px 10px !important;
+    min-height: 32px !important;
+    box-shadow: 0 1px 3px rgba(11, 59, 96, 0.06) !important;
+}
+
+.lang-toggle button:hover {
+    border-color: var(--teal) !important;
+    background: #E6FAF7 !important;
+}
+
+/* ── Streamlit 顶栏 ── */
+header[data-testid="stHeader"] {
+    background: none;
+}
+.stDeployButton { display: none !important; }
+.stStatusWidget { display: none !important; }
+
+/* ── Hero 深蓝网格区 ── */
+.hero-banner {
+    color: #FFFFFF;
+    background:
+        linear-gradient(rgba(11, 59, 96, 0.92), rgba(6, 18, 32, 0.96)),
+        repeating-linear-gradient(0deg, rgba(255,255,255,0.04) 0 1px, transparent 1px 52px),
+        repeating-linear-gradient(90deg, rgba(255,255,255,0.04) 0 1px, transparent 1px 52px);
+    padding: 32px 40px;
+    border-radius: 14px;
+    margin: 0 0 1.2rem 0;
+}
+
+.hero-banner h1 {
+    color: #FFFFFF;
+    font-size: 1.6rem;
+    font-weight: 700;
+    margin: 0 0 0.3rem 0;
+    letter-spacing: 0;
+}
+
+.hero-banner .subtitle {
+    color: rgba(255,255,255,0.6);
+    font-size: 0.9rem;
+    margin: 0;
+}
+
+.hero-banner .greeting {
+    color: var(--teal);
+    font-size: 1.05rem;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+}
+
+/* ── 进度条 ── */
+.progress-bar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0;
+    margin-bottom: 1.5rem;
+}
+
+.step-node {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 14px;
+    border-radius: 999px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--muted);
+    background: var(--card);
+    border: 1px solid var(--line);
+    transition: all 0.2s;
+}
+
+.step-node.active {
+    color: #062033;
+    background: var(--teal);
+    border-color: var(--teal);
+}
+
+.step-node.done {
+    color: var(--green);
+    border-color: rgba(0, 166, 126, 0.3);
+}
+
+.step-connector {
+    width: 24px;
+    height: 2px;
+    background: var(--line);
+    margin: 0 4px;
+}
+
+.step-connector.done {
+    background: var(--green);
+}
+
+/* ── 标签/徽章 ── */
+.tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 10px;
+    border-radius: 999px;
+    background: #E6FAF7;
+    color: var(--navy);
+    border: 1px solid rgba(59, 200, 180, 0.4);
+    font-size: 0.75rem;
+    font-weight: 700;
+}
+
+/* ── 卡片 ── */
+.ai-card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 22px 24px;
+    box-shadow: 0 8px 24px rgba(11, 59, 96, 0.06);
+    margin-bottom: 1rem;
+}
+
+.ai-card--highlight {
+    border-left: 4px solid var(--teal);
+}
+
+/* ── 聊天消息 ── */
+.stChatMessage {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 1rem 1.2rem;
+    margin-bottom: 0.8rem;
+    box-shadow: 0 4px 12px rgba(11, 59, 96, 0.04);
+}
+
+.stChatMessage [data-testid="stChatMessageAvatar"] {
+    color: var(--navy);
+}
+
+/* ── 聊天输入框 ── */
+.stChatInput > div > div {
+    border-radius: 10px;
+    border: 1.5px solid var(--line);
+    transition: border-color 0.2s;
+}
+
+.stChatInput > div > div:focus-within {
+    border-color: var(--teal);
+    box-shadow: 0 0 0 3px rgba(59, 200, 180, 0.15);
+}
+
+/* ── 按钮 ── */
+.stButton > button[kind="primary"] {
+    background: var(--teal);
+    color: #062033;
+    border: none;
+    border-radius: 10px;
+    font-weight: 700;
+    font-size: 0.9rem;
+    transition: transform 0.12s, box-shadow 0.12s;
+}
+
+.stButton > button[kind="primary"]:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 14px rgba(59, 200, 180, 0.35);
+    background: var(--teal-dark);
+}
+
+.stButton > button[kind="secondary"] {
+    background: var(--card);
+    color: var(--navy);
+    border: 1px solid #C8D2DC;
+    border-radius: 10px;
+    font-weight: 600;
+}
+
+/* ── 多选框（Checkbox）美化 ── */
+.stCheckbox {
+    padding: 0.3rem 0;
+}
+
+.stCheckbox label {
+    font-size: 0.9rem;
+    color: var(--text);
+}
+
+.stCheckbox [data-testid="stMarkdownContainer"] {
+    color: var(--text);
+}
+
+/* ── 单选框（Radio）美化 ── */
+.stRadio label {
+    padding: 0.4rem 0.7rem;
+    border-radius: 8px;
+    border: 1px solid var(--line);
+    transition: all 0.15s;
+    font-size: 0.88rem;
+}
+
+.stRadio label:hover {
+    border-color: var(--teal);
+    background: #E6FAF7;
+}
+
+/* ── 文本输入框 ── */
+.stTextInput > div > div > input,
+.stTextArea > div > div > textarea {
+    border-radius: 10px;
+    border: 1.5px solid var(--line);
+    transition: border-color 0.2s;
+    font-family: "HarmonyOS Sans SC", "Noto Sans SC", sans-serif;
+}
+
+.stTextInput > div > div > input:focus,
+.stTextArea > div > div > textarea:focus {
+    border-color: var(--teal);
+    box-shadow: 0 0 0 3px rgba(59, 200, 180, 0.12);
+}
+
+/* ── Markdown 标题 ── */
+.stMarkdown h1 { color: var(--navy); }
+.stMarkdown h2 {
+    color: var(--navy);
+    border-bottom: 2px solid #e0e7ff;
+    padding-bottom: 0.4rem;
+    margin-top: 1.5rem;
+}
+.stMarkdown h3 {
+    color: var(--text);
+    margin-top: 1rem;
+}
+
+/* ── 分割线 ── */
+hr {
+    border: none;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--line), transparent);
+    margin: 1.2rem 0;
+}
+
+/* ── 代码面板 ── */
+.code-panel {
+    background: var(--code-bg);
+    color: #D1E2F2;
+    border: 1px solid rgba(59, 200, 180, 0.3);
+    border-radius: 12px;
+    padding: 18px 20px;
+    font-family: "Roboto Mono", "Source Code Pro", monospace;
+    font-size: 0.82rem;
+    line-height: 1.65;
+}
+
+/* ── 表格美化 ── */
+.stMarkdown table {
+    border-collapse: collapse;
+    width: 100%;
+    font-size: 0.88rem;
+}
+
+.stMarkdown th {
+    background: #F0F4F8;
+    color: var(--navy);
+    font-weight: 700;
+    padding: 8px 12px;
+    border: 1px solid var(--line);
+    text-align: left;
+}
+
+.stMarkdown td {
+    padding: 8px 12px;
+    border: 1px solid var(--line);
+}
+
+.stMarkdown tr:hover td {
+    background: #F8FAFC;
+}
+
+/* ── 成功/警告提示 ── */
+.stSuccess {
+    background: #E6FAF7;
+    border-color: var(--green);
+    color: var(--navy);
+}
+
+/* ── 精修页面侧栏 ── */
+.refine-nav {
+    position: sticky;
+    top: 1rem;
+}
+</style>
