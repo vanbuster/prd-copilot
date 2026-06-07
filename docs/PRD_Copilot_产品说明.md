@@ -120,21 +120,33 @@ Layer 4 — 任务指令：澄清 / 生成 / 精修三种模式
 
 ```
 prd-copilot/
-├── app.py                  # 主应用入口
+├── app.py                  # 页面路由（353 行）
+├── i18n.py                 # 中英文翻译（59 个 key）
+├── services/               # 业务逻辑层
+│   ├── clarify.py          # 澄清问题解析
+│   ├── generate.py         # 竞品分析 + PRD 生成 + 质量评分 + 章节拆分
+│   └── refine.py           # 章节精修
+├── components/             # UI 组件层
+│   ├── sidebar.py          # 侧栏设置面板（API Key + 模型切换）
+│   └── layout.py           # 工具栏 + Hero + 进度条 + 质量评分卡
 ├── prompts/                # Prompt 模板
 │   ├── system.py           # 系统提示词（PM 角色）
 │   ├── clarify.py          # 澄清问题生成
 │   ├── generate.py         # PRD 生成（~5600 字详细指令）
-│   └── refine.py           # PRD 精修
+│   ├── refine.py           # PRD 精修
+│   ├── evaluate.py         # 质量评估
+│   └── competitive.py      # 竞品分析
 ├── templates/
-│   └── prd_template.py     # 7+1 模块定义 + AI 产品检测
+│   └── prd_template.py     # 7+1 模块定义 + AI 产品检测 + 多模板系统
 ├── utils/
-│   ├── llm.py              # LLM 客户端封装
-│   └── export.py           # Markdown 导出
+│   ├── llm.py              # LLM 客户端封装（7 提供商 BYOK）
+│   ├── providers.py        # 提供商配置（DeepSeek/OpenAI/Claude/智谱/千问/豆包/自定义）
+│   ├── export.py           # Markdown + Word 导出
+│   └── search.py           # DuckDuckGo 联网搜索
 ├── static/
-│   └── style.css           # 自定义样式
-├── .env.example            # API Key 模板
-├── requirements.txt        # Python 依赖（3 个）
+│   └── style.css           # 玻璃态设计系统
+├── .env.example            # 环境变量模板
+├── requirements.txt        # Python 依赖（4 个）
 └── README.md               # 使用说明
 ```
 
@@ -168,25 +180,28 @@ prd-copilot/
 git clone https://github.com/vanbuster/prd-copilot.git
 cd prd-copilot
 pip install -r requirements.txt
-cp .env.example .env   # 填入你的 API Key
 streamlit run app.py
 ```
 
-### 配置选项
+首次打开时，在左侧 ⚙️ 设置面板中配置 API Key，支持 7 个提供商（DeepSeek / OpenAI / Claude / 智谱 / 千问 / 豆包 / 自定义）。
 
-支持 DeepSeek API 和 OpenAI 兼容 API，在 `.env` 中配置：
+### 配置方式
+
+**方式一（推荐）：页面内配置**
+
+点击左侧 `>` 展开侧栏，选择提供商 → 填入 API Key → 点击"开始使用"。Key 仅保存在浏览器会话中，不上传任何服务器。
+
+**方式二：环境变量**
+
+在 `.env` 中配置（适合开发环境）：
 
 ```env
-DEEPSEEK_API_KEY=your_key_here      # DeepSeek API（默认）
-# OPENAI_API_KEY=your_key_here      # 或使用 OpenAI
-# OPENAI_BASE_URL=https://api.openai.com/v1
-MODEL_FAST=deepseek-v4-flash        # 澄清模型
-MODEL_PRO=deepseek-v4-pro           # 生成/精修模型
+DEEPSEEK_API_KEY=your_key_here
 ```
 
-### 语言切换
+### 模型切换
 
-界面右上角提供中英文切换按钮，所有 UI 文案、提示文本一键切换。
+侧栏设置面板中可切换当前提供商的模型（如 DeepSeek V4 Flash ↔ DeepSeek R1）。
 
 ---
 

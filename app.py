@@ -16,7 +16,7 @@ st.set_page_config(
     page_title="PRD Copilot",
     page_icon="⚙️",
     layout="wide",
-    initial_sidebar_state="collapsed",
+    initial_sidebar_state="auto",
 )
 
 # ── CSS (cached to avoid disk read on every rerun) ──

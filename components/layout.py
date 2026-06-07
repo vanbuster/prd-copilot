@@ -65,7 +65,7 @@ def render_progress(step, lang):
 
 
 def render_api_banner(t):
-    """Render the 'no API key' glass card banner."""
+    """Render the 'no API key' glass card banner with a hint arrow."""
     st.markdown(
         f'<div class="glass-card" style="text-align:center;padding:28px;">'
         f'<p style="font-size:1.05rem;color:var(--navy);margin:0 0 6px;">{t("settings_banner")}</p>'
