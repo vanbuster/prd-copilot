@@ -1,15 +1,16 @@
-import json
-import re
+import os
 
 import streamlit as st
 
-from prompts.clarify import CLARIFY_PROMPT
-from prompts.generate import GENERATE_PROMPT
-from prompts.refine import REFINE_PROMPT
-from prompts.system import SYSTEM_PROMPT
-from templates.prd_template import detect_ai_product
-from utils.export import export_prd
-from utils.llm import chat, MODEL_FAST, MODEL_PRO
+from components.layout import render_toolbar, render_hero, render_progress, render_api_banner, render_quality_score
+from components.sidebar import render_sidebar
+from i18n import I18N
+from services.clarify import parse_questions
+from services.generate import run_competitive_analysis, build_generation_prompt, evaluate_quality, parse_sections
+from services.refine import refine_section
+from templates.prd_template import detect_ai_product, get_template_options, get_template_by_index
+from utils.export import export_prd, export_prd_docx
+from utils.llm import chat, chat_stream, get_model_fast, get_model_pro
 
 st.set_page_config(
     page_title="PRD Copilot",
@@ -18,87 +19,27 @@ st.set_page_config(
     initial_sidebar_state="collapsed",
 )
 
-# ── 注入 CSS ──
-with open("static/style.css") as f:
-    st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
+# ── CSS (cached to avoid disk read on every rerun) ──
+@st.cache_data
+def _load_css():
+    with open("static/style.css") as f:
+        return f.read()
+
+st.markdown(f"<style>{_load_css()}</style>", unsafe_allow_html=True)
 
 
-# ── i18n ──
-I18N = {
-    "zh": {
-        "subtitle": "一句话描述你的产品想法，AI 帮你生成结构化 PRD 大纲",
-        "tip_prefix": "💡 提示：",
-        "tips": [
-            "试试描述一个你想做的产品，比如：一个帮助大学生规划职业路径的AI助手",
-            "你可以用一句话开始，也可以详细描述——我会帮你补全缺失的信息",
-            "越具体的描述，生成的 PRD 质量越高哦",
-        ],
-        "input_placeholder": "描述你想做的产品或功能，越详细越好...",
-        "input_too_short": "请多描述一些细节，至少 10 个字",
-        "analyzing": "正在分析你的需求...",
-        "clarify_intro": "我已经理解了你的想法 {badges}。<br/>为了生成更精准的 PRD，请回答以下问题：",
-        "multi_hint": "可多选",
-        "single_hint": "单选",
-        "custom_placeholder": "补充其他想法（可选）...",
-        "generate_btn": "生成 PRD →",
-        "answer_required": "请至少回答一个问题",
-        "generating": "正在生成 PRD 大纲，请稍候...",
-        "refining_spinner": "正在精修...",
-        "refine_title": "精修 PRD",
-        "refine_caption": "选择模块展开补充，或直接导出",
-        "refine_nav": "模块导航",
-        "refine_placeholder": "补充更多用户故事、细化指标...",
-        "refine_btn": "精修选中模块",
-        "refine_default": "展开该模块的细节，增加更多具体内容",
-        "refine_done": "精修完成",
-        "export_btn": "完成，导出 PRD →",
-        "restart_btn": "重新开始",
-        "preview_title": "PRD 预览",
-        "download_btn": "📥 下载 PRD (Markdown)",
-        "back_refine_btn": "返回精修",
-        "lang_label": "English",
-    },
-    "en": {
-        "subtitle": "Describe your product idea in one sentence, AI generates a structured PRD outline",
-        "tip_prefix": "💡 Tip: ",
-        "tips": [
-            "Try describing a product you want to build, e.g.: an AI assistant for college students to plan career paths",
-            "Start with one sentence or go into detail — I'll help fill in the gaps",
-            "More specific descriptions lead to higher quality PRDs",
-        ],
-        "input_placeholder": "Describe the product or feature you want to build...",
-        "input_too_short": "Please provide more details, at least 10 characters",
-        "analyzing": "Analyzing your requirements...",
-        "clarify_intro": "I understand your idea {badges}.<br/>To generate a more precise PRD, please answer:",
-        "multi_hint": "multi-select",
-        "single_hint": "single-select",
-        "custom_placeholder": "Add more details (optional)...",
-        "generate_btn": "Generate PRD →",
-        "answer_required": "Please answer at least one question",
-        "generating": "Generating PRD outline, please wait...",
-        "refining_spinner": "Refining...",
-        "refine_title": "Refine PRD",
-        "refine_caption": "Select a section to expand, or export directly",
-        "refine_nav": "Section Navigator",
-        "refine_placeholder": "Add more user stories, refine metrics...",
-        "refine_btn": "Refine Selected Section",
-        "refine_default": "Expand this section with more details",
-        "refine_done": "Refinement complete",
-        "export_btn": "Done, Export PRD →",
-        "restart_btn": "Start Over",
-        "preview_title": "PRD Preview",
-        "download_btn": "📥 Download PRD (Markdown)",
-        "back_refine_btn": "Back to Refine",
-        "lang_label": "中文",
-    },
-}
-
-STEPS_ZH = ["描述需求", "澄清细节", "生成 PRD", "精修内容", "导出文档"]
-STEPS_EN = ["Describe", "Clarify", "Generate PRD", "Refine", "Export"]
-STEP_ORDER = {k: i for i, k in enumerate(["input", "clarify", "generate", "refine", "export"])}
+# ── State ──
+def _has_api_key():
+    if st.session_state.get("api_key"):
+        return True
+    if os.getenv("DEEPSEEK_API_KEY") or os.getenv("OPENAI_API_KEY"):
+        return True
+    try:
+        return bool(st.secrets.get("DEEPSEEK_API_KEY") or st.secrets.get("OPENAI_API_KEY"))
+    except Exception:
+        return False
 
 
-# ── 状态管理 ──
 def init_state():
     defaults = {
         "step": "input",
@@ -110,6 +51,10 @@ def init_state():
         "is_ai_product": False,
         "messages": [],
         "lang": "zh",
+        "template_idx": 0,
+        "enable_search": True,
+        "competitor_analysis": "",
+        "quality_score": None,
     }
     for k, v in defaults.items():
         if k not in st.session_state:
@@ -141,50 +86,19 @@ def render_messages():
             st.markdown(msg["content"], unsafe_allow_html=True)
 
 
-def render_progress():
-    current_idx = STEP_ORDER.get(st.session_state.step, 0)
-    steps = STEPS_ZH if st.session_state.lang == "zh" else STEPS_EN
-    html_parts = ['<div class="progress-bar">']
-    for i, label in enumerate(steps):
-        if i > 0:
-            conn_class = "done" if i <= current_idx else ""
-            html_parts.append(f'<div class="step-connector {conn_class}"></div>')
-        if i < current_idx:
-            html_parts.append(f'<div class="step-node done">✓ {label}</div>')
-        elif i == current_idx:
-            html_parts.append(f'<div class="step-node active">● {label}</div>')
-        else:
-            html_parts.append(f'<div class="step-node">{label}</div>')
-    html_parts.append("</div>")
-    st.markdown("".join(html_parts), unsafe_allow_html=True)
+# ── Layout ──
+render_sidebar(t, _has_api_key)
+render_toolbar(t, _has_api_key)
+render_hero(t)
+render_progress(st.session_state.step, st.session_state.lang)
 
-
-# ── 语言切换 ──
-col_spacer, col_lang = st.columns([8, 1])
-with col_lang:
-    st.markdown('<div class="lang-toggle">', unsafe_allow_html=True)
-    if st.button("🌐 " + t("lang_label")):
-        st.session_state.lang = "en" if st.session_state.lang == "zh" else "zh"
-        st.rerun()
-    st.markdown('</div>', unsafe_allow_html=True)
-
-# ── Hero ──
-st.markdown(
-    """
-    <div class="hero-banner" style="text-align:center;">
-        <p class="greeting">Hey, Captain，我是你的 PRD Copilot</p>
-        <h1>今天想做点什么改变世界的事？</h1>
-        <p class="subtitle">""" + t("subtitle") + """</p>
-    </div>
-    """,
-    unsafe_allow_html=True,
-)
-
-render_progress()
+if not _has_api_key():
+    render_api_banner(t)
+    st.stop()
 
 
 # ══════════════════════════════════════════════════════════════
-# Step 1: 用户输入
+# Step 1: Input
 # ══════════════════════════════════════════════════════════════
 if st.session_state.step == "input":
     if not st.session_state.messages:
@@ -209,57 +123,44 @@ if st.session_state.step == "input":
 
 
 # ══════════════════════════════════════════════════════════════
-# Step 2: 澄清问题（多选 + 单选，flash 模型）
+# Step 2: Clarify
 # ══════════════════════════════════════════════════════════════
 elif st.session_state.step == "clarify":
     render_messages()
 
     with st.chat_message("assistant"):
         with st.spinner(t("analyzing")):
+            from prompts.clarify import CLARIFY_PROMPT
+            from prompts.system import SYSTEM_PROMPT
             messages = [
                 {"role": "system", "content": SYSTEM_PROMPT},
                 {"role": "user", "content": CLARIFY_PROMPT.format(
                     user_input=st.session_state.user_input
                 )},
             ]
-            raw = chat(messages, temperature=0.3, model=MODEL_FAST)
+            raw = chat(messages, temperature=0.3, model=get_model_fast())
 
-        parsed_questions = []
-        try:
-            parsed = json.loads(raw)
-            if isinstance(parsed, list):
-                for item in parsed:
-                    if isinstance(item, dict) and "question" in item:
-                        parsed_questions.append({
-                            "question": item["question"],
-                            "options": item.get("options", []),
-                            "select_type": item.get("select_type", "multi"),
-                        })
-                    elif isinstance(item, str):
-                        parsed_questions.append({
-                            "question": item,
-                            "options": [],
-                            "select_type": "multi",
-                        })
-        except json.JSONDecodeError:
-            lines = [l.strip("- ").strip() for l in raw.strip().split("\n") if l.strip()]
-            for l in lines[:5]:
-                parsed_questions.append({"question": l, "options": [], "select_type": "multi"})
-
-        parsed_questions = parsed_questions[:5]
+        parsed_questions = parse_questions(raw)
         st.session_state.clarify_questions = parsed_questions
 
-        badges = ""
-        if st.session_state.is_ai_product:
-            badges = '<span class="tag">AI 产品</span>'
-
-        st.markdown(
-            t("clarify_intro").format(badges=badges),
-            unsafe_allow_html=True,
-        )
+        badges = '<span class="tag">AI 产品</span>' if st.session_state.is_ai_product else ""
+        st.markdown(t("clarify_intro").format(badges=badges), unsafe_allow_html=True)
 
     final_answers = {}
     with st.form("clarify_form"):
+        st.markdown(f"**{t('template_label')}**")
+        template_options = get_template_options(st.session_state.lang)
+        selected_template = st.selectbox(
+            t("template_label"),
+            options=template_options,
+            index=st.session_state.template_idx,
+            label_visibility="collapsed",
+        )
+        st.session_state.template_idx = template_options.index(selected_template)
+
+        enable_search = st.checkbox(t("enable_search"), value=st.session_state.enable_search)
+        st.markdown("---")
+
         for i, q_data in enumerate(parsed_questions):
             q_text = q_data["question"]
             opts = q_data.get("options", [])
@@ -270,12 +171,7 @@ elif st.session_state.step == "clarify":
                 st.markdown(f"**{i+1}. {q_text}**（{mode_hint}）")
 
                 if select_type == "single":
-                    selected = st.radio(
-                        "选择一个",
-                        options=opts,
-                        key=f"q_{i}",
-                        label_visibility="collapsed",
-                    )
+                    selected = st.radio("选择一个", options=opts, key=f"q_{i}", label_visibility="collapsed")
                     selected_items = [selected]
                 else:
                     selected_items = []
@@ -283,12 +179,7 @@ elif st.session_state.step == "clarify":
                         if st.checkbox(opt, key=f"cb_{i}_{j}"):
                             selected_items.append(opt)
 
-                custom = st.text_input(
-                    f"q_custom_{i}",
-                    placeholder=t("custom_placeholder"),
-                    label_visibility="collapsed",
-                )
-
+                custom = st.text_input(f"q_custom_{i}", placeholder=t("custom_placeholder"), label_visibility="collapsed")
                 parts = list(selected_items) if selected_items else []
                 if custom:
                     parts.append(custom)
@@ -300,8 +191,8 @@ elif st.session_state.step == "clarify":
                 final_answers[i] = st.text_input(q_text, key=f"q_{i}")
 
         submitted = st.form_submit_button(t("generate_btn"), use_container_width=True)
-
         if submitted:
+            st.session_state.enable_search = enable_search
             st.session_state.clarify_answers = {
                 parsed_questions[i]["question"]: final_answers[i]
                 for i in range(len(parsed_questions)) if final_answers.get(i)
@@ -318,68 +209,57 @@ elif st.session_state.step == "clarify":
 
 
 # ══════════════════════════════════════════════════════════════
-# Step 3: 生成 PRD（pro 模型）
+# Step 3: Generate PRD
 # ══════════════════════════════════════════════════════════════
 elif st.session_state.step == "generate":
     render_messages()
 
     with st.chat_message("assistant"):
-        with st.spinner(t("generating")):
-            clarify_qa = "\n".join(
-                f"Q: {q}\nA: {a}" for q, a in st.session_state.clarify_answers.items()
-            )
-            ai_section = ""
-            if st.session_state.is_ai_product:
-                ai_section = (
-                    "### 8. AI 专项\n"
-                    "- 模型能力边界（能做什么/不能做什么）\n"
-                    "- Prompt 设计策略\n"
-                    "- 准确率/幻觉率指标要求\n"
-                    "- 降级策略（模型不可用时的兜底方案）"
+        template = get_template_by_index(st.session_state.template_idx)
+
+        competitor_section = ""
+        search_used = False
+        if st.session_state.enable_search:
+            with st.spinner(t("competitor_searching")):
+                competitor_section, search_used = run_competitive_analysis(
+                    st.session_state.user_input
                 )
+            st.session_state.competitor_analysis = competitor_section
+            label = f"🔍 {t('competitor_found')}"
+            if not search_used:
+                label += t("competitor_fallback")
+            with st.expander(label, expanded=False):
+                st.markdown(competitor_section)
 
-            messages = [
-                {"role": "system", "content": SYSTEM_PROMPT},
-                {"role": "user", "content": GENERATE_PROMPT.format(
-                    user_input=st.session_state.user_input,
-                    clarify_qa=clarify_qa,
-                    is_ai_product="是" if st.session_state.is_ai_product else "否",
-                    ai_section=ai_section,
-                )},
-            ]
-            prd = chat(messages, temperature=0.5, max_tokens=4096, model=MODEL_PRO)
+        messages = build_generation_prompt(
+            st.session_state.user_input,
+            st.session_state.clarify_answers,
+            st.session_state.is_ai_product,
+            template,
+            competitor_section,
+        )
+        with st.spinner(t("generating")):
+            prd_placeholder = st.empty()
+            prd_text = ""
+            for chunk in chat_stream(messages, temperature=0.5, max_tokens=4096, model=get_model_pro()):
+                prd_text += chunk
+                prd_placeholder.markdown(prd_text)
 
-        st.session_state.prd_content = prd
-        st.markdown(prd)
+        st.session_state.prd_content = prd_text
 
-        # 解析各模块
-        sections = {}
-        pattern = r"^##\s+(\d+\.\s+.+)$"
-        lines = prd.split("\n")
-        current_section = None
-        current_lines = []
+        with st.spinner(t("evaluating")):
+            st.session_state.quality_score = evaluate_quality(prd_text)
+        if st.session_state.quality_score:
+            render_quality_score(t, st.session_state.quality_score)
 
-        for line in lines:
-            match = re.match(pattern, line)
-            if match:
-                if current_section:
-                    sections[current_section] = "\n".join(current_lines)
-                current_section = match.group(1)
-                current_lines = [line]
-            elif current_section:
-                current_lines.append(line)
-
-        if current_section:
-            sections[current_section] = "\n".join(current_lines)
-
-        st.session_state.prd_sections = sections
-        add_message("assistant", prd)
+        st.session_state.prd_sections = parse_sections(prd_text, competitor_section)
+        add_message("assistant", prd_text)
         st.session_state.step = "refine"
         st.rerun()
 
 
 # ══════════════════════════════════════════════════════════════
-# Step 4: 逐节精修（pro 模型）
+# Step 4: Refine
 # ══════════════════════════════════════════════════════════════
 elif st.session_state.step == "refine":
     render_messages()
@@ -393,11 +273,7 @@ elif st.session_state.step == "refine":
     with col_nav:
         st.markdown('<div class="refine-nav">', unsafe_allow_html=True)
         st.markdown(f"**{t('refine_nav')}**")
-        selected = st.radio(
-            t("refine_nav"),
-            options=section_titles,
-            label_visibility="collapsed",
-        )
+        selected = st.radio(t("refine_nav"), options=section_titles, label_visibility="collapsed")
 
         refine_instruction = st.text_area(
             t("refine_nav"),
@@ -408,21 +284,14 @@ elif st.session_state.step == "refine":
 
         if st.button(t("refine_btn"), use_container_width=True):
             with st.spinner(t("refining_spinner")):
-                messages = [
-                    {"role": "system", "content": SYSTEM_PROMPT},
-                    {"role": "user", "content": REFINE_PROMPT.format(
-                        current_prd=st.session_state.prd_content,
-                        section_name=selected,
-                        user_instruction=refine_instruction or t("refine_default"),
-                    )},
-                ]
-                refined = chat(messages, temperature=0.5, model=MODEL_PRO)
-
+                refined = refine_section(
+                    st.session_state.prd_content,
+                    selected,
+                    refine_instruction or t("refine_default"),
+                )
             old = st.session_state.prd_sections.get(selected, "")
             st.session_state.prd_sections[selected] = refined
-            st.session_state.prd_content = st.session_state.prd_content.replace(
-                old, refined
-            )
+            st.session_state.prd_content = st.session_state.prd_content.replace(old, refined)
             st.success(t("refine_done"))
             st.rerun()
 
@@ -430,7 +299,6 @@ elif st.session_state.step == "refine":
         if st.button(t("export_btn"), use_container_width=True, type="primary"):
             st.session_state.step = "export"
             st.rerun()
-
         if st.button(t("restart_btn"), use_container_width=True):
             reset()
             st.rerun()
@@ -442,31 +310,44 @@ elif st.session_state.step == "refine":
 
 
 # ══════════════════════════════════════════════════════════════
-# Step 5: 导出 PRD
+# Step 5: Export
 # ══════════════════════════════════════════════════════════════
 elif st.session_state.step == "export":
     st.markdown(f"### {t('preview_title')}")
     st.markdown(st.session_state.prd_content)
 
-    filename, full_content = export_prd(
-        st.session_state.prd_content, st.session_state.user_input
-    )
+    filename, full_content = export_prd(st.session_state.prd_content, st.session_state.user_input)
+    word_filename, word_bytes = export_prd_docx(st.session_state.prd_content, st.session_state.user_input)
 
-    col1, col2, col3 = st.columns([2, 1, 1])
-    with col1:
+    dl1, dl2, dl3 = st.columns(3)
+    with dl1:
         st.download_button(
-            t("download_btn"),
-            data=full_content,
-            file_name=filename,
-            mime="text/markdown",
-            use_container_width=True,
-            type="primary",
+            t("download_btn"), data=full_content, file_name=filename,
+            mime="text/markdown", use_container_width=True, type="primary",
         )
-    with col2:
+    with dl2:
+        st.download_button(
+            t("download_word_btn"), data=word_bytes, file_name=word_filename,
+            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            use_container_width=True, type="primary",
+        )
+    with dl3:
+        if st.button(t("copy_clipboard_btn"), use_container_width=True):
+            st.session_state.copied = True
+            st.rerun()
+
+    if st.session_state.get("copied"):
+        st.success(t("copied"))
+        st.code(full_content, language="markdown")
+
+    st.markdown("---")
+    nav1, nav2 = st.columns(2)
+    with nav1:
         if st.button(t("back_refine_btn"), use_container_width=True):
+            st.session_state.pop("copied", None)
             st.session_state.step = "refine"
             st.rerun()
-    with col3:
+    with nav2:
         if st.button(t("restart_btn"), use_container_width=True):
             reset()
             st.rerun()

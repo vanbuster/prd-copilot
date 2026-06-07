@@ -1,0 +1,187 @@
+{
+  "scriptCompleted": true,
+  "files": [
+    {
+      "path": ".env.example",
+      "language": "config",
+      "sizeLines": 11,
+      "fileCategory": "config"
+    },
+    {
+      "path": "app.py",
+      "language": "python",
+      "sizeLines": 844,
+      "fileCategory": "code"
+    },
+    {
+      "path": "DESIGN.md",
+      "language": "markdown",
+      "sizeLines": 239,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "docs/PRD_Copilot_产品说明.docx",
+      "language": "docx",
+      "sizeLines": 156,
+      "fileCategory": "code"
+    },
+    {
+      "path": "docs/PRD_Copilot_产品说明.md",
+      "language": "markdown",
+      "sizeLines": 201,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "docs/PRD_Copilot_产品战略分析.md",
+      "language": "markdown",
+      "sizeLines": 652,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "PRODUCT.md",
+      "language": "markdown",
+      "sizeLines": 21,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "prompts/__init__.py",
+      "language": "python",
+      "sizeLines": 0,
+      "fileCategory": "code"
+    },
+    {
+      "path": "prompts/clarify.py",
+      "language": "python",
+      "sizeLines": 39,
+      "fileCategory": "code"
+    },
+    {
+      "path": "prompts/competitive.py",
+      "language": "python",
+      "sizeLines": 66,
+      "fileCategory": "code"
+    },
+    {
+      "path": "prompts/evaluate.py",
+      "language": "python",
+      "sizeLines": 60,
+      "fileCategory": "code"
+    },
+    {
+      "path": "prompts/generate.py",
+      "language": "python",
+      "sizeLines": 180,
+      "fileCategory": "code"
+    },
+    {
+      "path": "prompts/refine.py",
+      "language": "python",
+      "sizeLines": 28,
+      "fileCategory": "code"
+    },
+    {
+      "path": "prompts/system.py",
+      "language": "python",
+      "sizeLines": 26,
+      "fileCategory": "code"
+    },
+    {
+      "path": "README.md",
+      "language": "markdown",
+      "sizeLines": 132,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "references/extracted-prompts-research.md",
+      "language": "markdown",
+      "sizeLines": 522,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "requirements.txt",
+      "language": "txt",
+      "sizeLines": 4,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "research/technical-architecture-patterns.md",
+      "language": "markdown",
+      "sizeLines": 780,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "scripts/build_docx.py",
+      "language": "python",
+      "sizeLines": 297,
+      "fileCategory": "code"
+    },
+    {
+      "path": "static/style.css",
+      "language": "css",
+      "sizeLines": 462,
+      "fileCategory": "markup"
+    },
+    {
+      "path": "templates/__init__.py",
+      "language": "python",
+      "sizeLines": 0,
+      "fileCategory": "code"
+    },
+    {
+      "path": "templates/prd_template.py",
+      "language": "python",
+      "sizeLines": 130,
+      "fileCategory": "code"
+    },
+    {
+      "path": "utils/__init__.py",
+      "language": "python",
+      "sizeLines": 0,
+      "fileCategory": "code"
+    },
+    {
+      "path": "utils/export.py",
+      "language": "python",
+      "sizeLines": 157,
+      "fileCategory": "code"
+    },
+    {
+      "path": "utils/llm.py",
+      "language": "python",
+      "sizeLines": 111,
+      "fileCategory": "code"
+    },
+    {
+      "path": "utils/providers.py",
+      "language": "python",
+      "sizeLines": 96,
+      "fileCategory": "code"
+    },
+    {
+      "path": "utils/search.py",
+      "language": "python",
+      "sizeLines": 88,
+      "fileCategory": "code"
+    }
+  ],
+  "totalFiles": 27,
+  "filteredByIgnore": 0,
+  "estimatedComplexity": "small",
+  "stats": {
+    "filesScanned": 27,
+    "byCategory": {
+      "config": 1,
+      "code": 17,
+      "docs": 8,
+      "markup": 1
+    },
+    "byLanguage": {
+      "config": 1,
+      "python": 16,
+      "markdown": 7,
+      "docx": 1,
+      "txt": 1,
+      "css": 1
+    }
+  }
+}

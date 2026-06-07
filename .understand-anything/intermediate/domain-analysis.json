@@ -1,0 +1,593 @@
+{
+  "version": "1.0.0",
+  "project": {
+    "name": "PRD Copilot",
+    "languages": ["Python"],
+    "frameworks": ["Streamlit", "OpenAI SDK"],
+    "description": "An AI-powered Product Requirements Document generator that guides users through a structured workflow: describe a product idea, clarify requirements via AI-driven questions, generate a comprehensive PRD with competitive analysis and quality scoring, refine sections iteratively, and export to Markdown or Word.",
+    "analyzedAt": "2026-06-07T12:00:00Z",
+    "gitCommitHash": "bff2fa9"
+  },
+  "nodes": [
+    {
+      "id": "domain:prd-generation",
+      "type": "domain",
+      "name": "PRD Generation Pipeline",
+      "summary": "The core business domain encompassing the entire product-to-PRD lifecycle. It orchestrates user input capture, AI-driven clarification question generation, structured PRD document generation using prompt templates, iterative section refinement, and multi-format export. This is the primary value proposition of the application.",
+      "tags": ["core-business", "prd", "generation", "ai-workflow"],
+      "complexity": "complex",
+      "domainMeta": {
+        "entities": ["PRD Document", "User Input", "Clarification Question", "Clarification Answer", "PRD Section", "PRD Template"],
+        "businessRules": [
+          "PRD must follow a 7+1 module structure (overview, users, stories, requirements, non-functional, architecture, metrics, plus optional AI section)",
+          "All non-functional requirements must contain quantified metrics",
+          "User stories must use As a / I want / So that format",
+          "Quality scoring evaluates completeness, quantification, and executability on 0-100 scale"
+        ],
+        "crossDomainInteractions": [
+          "Delegates LLM calls to the AI Provider Management domain",
+          "Uses Search Integration domain for competitive analysis",
+          "Uses API Key Management domain to authenticate LLM requests"
+        ]
+      }
+    },
+    {
+      "id": "domain:ai-provider-management",
+      "type": "domain",
+      "name": "AI Provider Management",
+      "summary": "Manages the configuration and lifecycle of AI model providers. Implements a BYOK (Bring Your Own Key) pattern where users supply their own API keys for various LLM providers. Handles provider registry, model selection (fast vs. pro tiers), OpenAI-compatible client instantiation, and credential resolution from multiple sources (session state, environment variables, Streamlit secrets).",
+      "tags": ["infrastructure", "llm", "api-keys", "multi-provider"],
+      "complexity": "moderate",
+      "domainMeta": {
+        "entities": ["Provider", "API Key", "Model (Fast/Pro)", "OpenAI Client", "Base URL"],
+        "businessRules": [
+          "API key resolution priority: session_state > env vars > st.secrets",
+          "Client is cached and invalidated when key or base_url changes",
+          "All providers must be OpenAI-compatible (share the same chat completions interface)",
+          "Fast model used for clarification and evaluation; Pro model used for generation and refinement"
+        ],
+        "crossDomainInteractions": [
+          "Provides LLM client to PRD Generation Pipeline for all chat operations",
+          "Provides LLM client to Search Integration for agent-mode tool calls"
+        ]
+      }
+    },
+    {
+      "id": "domain:search-integration",
+      "type": "domain",
+      "name": "Search and Competitive Analysis",
+      "summary": "Handles web search for competitive analysis using an agent loop pattern. The LLM autonomously decides whether to invoke a search tool, executes DuckDuckGo searches, and synthesizes competitive intelligence. This domain bridges real-time web data with AI-generated competitive analysis reports that feed into the PRD output.",
+      "tags": ["search", "competitive-analysis", "agent", "web-data"],
+      "complexity": "moderate",
+      "domainMeta": {
+        "entities": ["Search Query", "Search Result", "Competitive Analysis Report", "Search Tool Definition"],
+        "businessRules": [
+          "Agent loop allows max 2 rounds of tool calls before fallback",
+          "If search fails or returns no results, falls back to AI-knowledge-only analysis",
+          "Search results are formatted as Markdown links for LLM consumption",
+          "Competitive analysis must include: competitor overview table, differentiation opportunities, market gaps"
+        ],
+        "crossDomainInteractions": [
+          "Uses AI Provider Management domain to get LLM client for agent loop",
+          "Feeds competitive analysis output into PRD Generation Pipeline for inclusion in generated PRD"
+        ]
+      }
+    },
+    {
+      "id": "domain:quality-assessment",
+      "type": "domain",
+      "name": "PRD Quality Assessment",
+      "summary": "Evaluates generated PRD documents across three dimensions: completeness (all required sections present), quantification (metrics are specific and numeric), and executability (requirements can be decomposed into dev tasks). Produces a structured quality report with scores, highlights, and improvement suggestions that are displayed to the user.",
+      "tags": ["quality", "scoring", "evaluation", "assessment"],
+      "complexity": "simple",
+      "domainMeta": {
+        "entities": ["Quality Score", "Dimension Score (Completeness/Quantification/Executability)", "Improvement Suggestion", "Highlight"],
+        "businessRules": [
+          "Each dimension scored 0-100",
+          "Completeness: -15 per missing core module, -5 per missing sub-item",
+          "Quantification: -10 per vague expression found",
+          "Score display uses color coding: green >= 75, amber >= 50, red < 50"
+        ],
+        "crossDomainInteractions": [
+          "Uses AI Provider Management domain to call fast model for evaluation",
+          "Receives generated PRD content from PRD Generation Pipeline as input"
+        ]
+      }
+    },
+    {
+      "id": "domain:document-export",
+      "type": "domain",
+      "name": "Document Export",
+      "summary": "Handles transformation of generated PRD content into downloadable formats. Supports Markdown export with metadata headers and Word (DOCX) export with rich formatting including proper heading hierarchy, tables, code blocks, lists, and blockquotes. Generates timestamped filenames based on product description.",
+      "tags": ["export", "markdown", "docx", "formatting"],
+      "complexity": "simple",
+      "domainMeta": {
+        "entities": ["Exported Document", "File Format (MD/DOCX)", "PRD Content"],
+        "businessRules": [
+          "Filename format: PRD_{first_30_chars_of_input}_{date}",
+          "DOCX export parses Markdown AST: headings, tables, code blocks, lists, blockquotes",
+          "All inline Markdown formatting (bold, italic, code, links) is stripped for DOCX output"
+        ],
+        "crossDomainInteractions": [
+          "Receives finalized PRD content from PRD Generation Pipeline"
+        ]
+      }
+    },
+    {
+      "id": "flow:user-input-to-clarification",
+      "type": "flow",
+      "name": "User Input to AI Clarification",
+      "summary": "Captures the user's raw product idea, detects whether it is an AI product, sends it to the LLM to generate structured clarification questions with selectable options, presents the questions in a form UI, and collects the user's answers along with template selection.",
+      "tags": ["input", "clarification", "interactive"],
+      "complexity": "moderate",
+      "domainMeta": {
+        "entryPoint": "Streamlit chat_input (Step 1: input)",
+        "entryType": "http"
+      }
+    },
+    {
+      "id": "flow:prd-generation",
+      "type": "flow",
+      "name": "PRD Generation with Competitive Analysis",
+      "summary": "Orchestrates the full PRD generation process: runs competitive analysis via agent-mode search, constructs the generation prompt from user input and clarification answers, streams the PRD content from the pro model, runs quality evaluation on the result, parses the output into navigable sections, and transitions to the refinement step.",
+      "tags": ["generation", "streaming", "competitive-analysis", "quality-scoring"],
+      "complexity": "complex",
+      "domainMeta": {
+        "entryPoint": "Streamlit form submit (Step 2: clarify -> Step 3: generate)",
+        "entryType": "http"
+      }
+    },
+    {
+      "id": "flow:prd-refinement",
+      "type": "flow",
+      "name": "PRD Section Refinement",
+      "summary": "Allows the user to select individual PRD sections and provide refinement instructions. The pro model re-generates only the selected section while preserving the rest of the document. The refined section replaces the original in both the section map and the full PRD content string.",
+      "tags": ["refinement", "iterative", "section-editing"],
+      "complexity": "moderate",
+      "domainMeta": {
+        "entryPoint": "Streamlit refine button (Step 4: refine)",
+        "entryType": "http"
+      }
+    },
+    {
+      "id": "flow:prd-export",
+      "type": "flow",
+      "name": "PRD Export and Download",
+      "summary": "Renders the final PRD preview and provides download options for Markdown, Word (DOCX), and clipboard copy. Handles browser clipboard operations and provides navigation back to refinement or restart.",
+      "tags": ["export", "download", "preview"],
+      "complexity": "simple",
+      "domainMeta": {
+        "entryPoint": "Export button (Step 5: export)",
+        "entryType": "http"
+      }
+    },
+    {
+      "id": "flow:api-key-setup",
+      "type": "flow",
+      "name": "API Key Setup (BYOK)",
+      "summary": "Guides the user through selecting an AI provider, entering their API key, and optionally specifying a custom base URL. Validates the key is present, stores credentials in Streamlit session state (not persisted to server), and initializes or resets the OpenAI client.",
+      "tags": ["api-key", "byok", "setup", "onboarding"],
+      "complexity": "moderate",
+      "domainMeta": {
+        "entryPoint": "Sidebar settings panel",
+        "entryType": "http"
+      }
+    },
+    {
+      "id": "flow:provider-model-switching",
+      "type": "flow",
+      "name": "Provider and Model Switching",
+      "summary": "Allows the user to switch between configured providers and select specific models for fast and pro tiers. Changes trigger client reset and take effect immediately for subsequent LLM calls.",
+      "tags": ["model-switching", "provider", "runtime-config"],
+      "complexity": "simple",
+      "domainMeta": {
+        "entryPoint": "Sidebar model selectbox",
+        "entryType": "http"
+      }
+    },
+    {
+      "id": "flow:competitive-analysis",
+      "type": "flow",
+      "name": "Competitive Analysis with Agent Search",
+      "summary": "Uses an LLM agent loop with a web_search tool definition. The LLM autonomously decides to search for competitor information. Up to 2 rounds of tool calls are permitted. If the agent loop fails, falls back to a direct competitive analysis prompt using AI knowledge only.",
+      "tags": ["agent", "search", "competitive-analysis", "tool-calling"],
+      "complexity": "complex",
+      "domainMeta": {
+        "entryPoint": "Step 3 generation (conditional on enable_search flag)",
+        "entryType": "http"
+      }
+    },
+    {
+      "id": "flow:quality-evaluation",
+      "type": "flow",
+      "name": "PRD Quality Evaluation",
+      "summary": "Sends the generated PRD to the fast model with a structured evaluation prompt. Parses the JSON response to extract three dimension scores (completeness, quantification, executability), improvements, and highlights. Renders a visual quality report with color-coded score rings.",
+      "tags": ["quality", "scoring", "evaluation"],
+      "complexity": "moderate",
+      "domainMeta": {
+        "entryPoint": "Step 3 generation (after PRD content is streamed)",
+        "entryType": "http"
+      }
+    },
+    {
+      "id": "step:user-input-to-clarification:validate-input",
+      "type": "step",
+      "name": "Validate User Input Length",
+      "summary": "Checks that the user's input is at least 10 characters. Rejects short inputs with a warning message.",
+      "tags": ["validation", "input"],
+      "complexity": "simple",
+      "filePath": "app.py",
+      "lineRange": [393, 396]
+    },
+    {
+      "id": "step:user-input-to-clarification:detect-ai-product",
+      "type": "step",
+      "name": "Detect AI Product Keywords",
+      "summary": "Scans the user input against a list of AI-related keywords (LLM, GPT, Agent, etc.) to determine if the product is AI-related. If so, an additional AI-specific PRD section will be included.",
+      "tags": ["detection", "ai-product", "keywords"],
+      "complexity": "simple",
+      "filePath": "templates/prd_template.py",
+      "lineRange": [129, 130]
+    },
+    {
+      "id": "step:user-input-to-clarification:generate-clarify-questions",
+      "type": "step",
+      "name": "Generate Clarification Questions via LLM",
+      "summary": "Sends the user input to the fast model with the CLARIFY_PROMPT to generate 3-5 structured questions with selectable options. Parses the JSON response, falling back to line-based parsing if JSON parsing fails.",
+      "tags": ["llm", "clarification", "json-parsing"],
+      "complexity": "moderate",
+      "filePath": "app.py",
+      "lineRange": [411, 443]
+    },
+    {
+      "id": "step:user-input-to-clarification:render-clarify-form",
+      "type": "step",
+      "name": "Render Clarification Form with Template Selection",
+      "summary": "Displays the parsed questions in a Streamlit form with appropriate input widgets (checkboxes for multi-select, radio for single-select, text inputs for open questions). Includes PRD template selection dropdown and search toggle.",
+      "tags": ["ui", "form", "template"],
+      "complexity": "moderate",
+      "filePath": "app.py",
+      "lineRange": [455, 512]
+    },
+    {
+      "id": "step:user-input-to-clarification:collect-answers",
+      "type": "step",
+      "name": "Collect and Store Clarification Answers",
+      "summary": "On form submission, collects all selected options and custom text inputs into a question-answer map. Requires at least one answered question. Stores the QA summary in the conversation message history.",
+      "tags": ["data-collection", "validation"],
+      "complexity": "simple",
+      "filePath": "app.py",
+      "lineRange": [514, 528]
+    },
+    {
+      "id": "step:prd-generation:run-competitive-analysis",
+      "type": "step",
+      "name": "Run Competitive Analysis Agent Loop",
+      "summary": "If search is enabled, initiates an LLM agent loop with the web_search tool. The agent decides whether to search, executes DuckDuckGo queries, and synthesizes a competitive analysis report. Falls back to AI-knowledge-only prompt if the agent loop fails.",
+      "tags": ["agent", "search", "competitive"],
+      "complexity": "complex",
+      "filePath": "app.py",
+      "lineRange": [541, 599]
+    },
+    {
+      "id": "step:prd-generation:construct-generation-prompt",
+      "type": "step",
+      "name": "Construct PRD Generation Prompt",
+      "summary": "Assembles the full generation prompt by combining the GENERATE_PROMPT template with user input, clarification QA, AI product flag, template focus area, and competitive analysis block into a single prompt string.",
+      "tags": ["prompt-engineering", "template-assembly"],
+      "complexity": "moderate",
+      "filePath": "app.py",
+      "lineRange": [601, 636]
+    },
+    {
+      "id": "step:prd-generation:stream-prd-content",
+      "type": "step",
+      "name": "Stream PRD Content from Pro Model",
+      "summary": "Calls the pro model with streaming enabled to generate the PRD document. Displays each chunk incrementally in a Streamlit placeholder for real-time feedback.",
+      "tags": ["streaming", "pro-model", "generation"],
+      "complexity": "moderate",
+      "filePath": "app.py",
+      "lineRange": [643, 649]
+    },
+    {
+      "id": "step:prd-generation:run-quality-evaluation",
+      "type": "step",
+      "name": "Run Quality Evaluation on Generated PRD",
+      "summary": "Sends the generated PRD to the fast model with EVALUATE_PROMPT to get a quality score. Parses the JSON response to extract dimension scores, improvements, and highlights.",
+      "tags": ["quality", "evaluation", "scoring"],
+      "complexity": "moderate",
+      "filePath": "app.py",
+      "lineRange": [652, 664]
+    },
+    {
+      "id": "step:prd-generation:render-quality-report",
+      "type": "step",
+      "name": "Render Quality Report UI",
+      "summary": "Displays the quality evaluation results with color-coded score rings for each dimension (completeness, quantification, executability), plus improvement suggestions and highlights.",
+      "tags": ["ui", "quality-report", "visualization"],
+      "complexity": "moderate",
+      "filePath": "app.py",
+      "lineRange": [667, 698]
+    },
+    {
+      "id": "step:prd-generation:parse-prd-sections",
+      "type": "step",
+      "name": "Parse PRD into Navigable Sections",
+      "summary": "Parses the generated PRD text by splitting on ## headings (numbered sections) into a dictionary of section names to section content. Adds the competitive analysis as a separate section if present.",
+      "tags": ["parsing", "section-extraction"],
+      "complexity": "simple",
+      "filePath": "app.py",
+      "lineRange": [701, 723]
+    },
+    {
+      "id": "step:prd-refinement:select-section",
+      "type": "step",
+      "name": "Select PRD Section for Refinement",
+      "summary": "Renders a navigation panel with radio buttons listing all parsed PRD sections. The user selects one section to view and refine.",
+      "tags": ["ui", "section-selection"],
+      "complexity": "simple",
+      "filePath": "app.py",
+      "lineRange": [739, 755]
+    },
+    {
+      "id": "step:prd-refinement:provide-refinement-instructions",
+      "type": "step",
+      "name": "Provide Refinement Instructions",
+      "summary": "The user enters refinement instructions in a text area. If empty, a default instruction to expand section details is used.",
+      "tags": ["input", "instructions"],
+      "complexity": "simple",
+      "filePath": "app.py",
+      "lineRange": [741, 755]
+    },
+    {
+      "id": "step:prd-refinement:call-refine-llm",
+      "type": "step",
+      "name": "Call Pro Model for Section Refinement",
+      "summary": "Sends the current full PRD, selected section name, and user instructions to the pro model with REFINE_PROMPT. Returns the refined section content only.",
+      "tags": ["llm", "refinement", "pro-model"],
+      "complexity": "moderate",
+      "filePath": "app.py",
+      "lineRange": [758, 767]
+    },
+    {
+      "id": "step:prd-refinement:merge-refined-section",
+      "type": "step",
+      "name": "Merge Refined Section into PRD",
+      "summary": "Replaces the old section content with the refined version in both the section map and the full PRD content string using string replacement.",
+      "tags": ["merge", "state-update"],
+      "complexity": "simple",
+      "filePath": "app.py",
+      "lineRange": [769, 774]
+    },
+    {
+      "id": "step:prd-export:render-preview",
+      "type": "step",
+      "name": "Render Final PRD Preview",
+      "summary": "Displays the complete PRD content as rendered Markdown in the Streamlit main area.",
+      "tags": ["ui", "preview"],
+      "complexity": "simple",
+      "filePath": "app.py",
+      "lineRange": [796, 797]
+    },
+    {
+      "id": "step:prd-export:generate-markdown-export",
+      "type": "step",
+      "name": "Generate Markdown Export",
+      "summary": "Wraps the PRD content with a metadata header (title, generation timestamp) and prepares it as a downloadable Markdown file with a timestamped filename.",
+      "tags": ["export", "markdown"],
+      "complexity": "simple",
+      "filePath": "utils/export.py",
+      "lineRange": [10, 24]
+    },
+    {
+      "id": "step:prd-export:generate-docx-export",
+      "type": "step",
+      "name": "Generate Word (DOCX) Export",
+      "summary": "Parses the PRD Markdown into a python-docx Document object, handling headings, tables, code blocks, bullet/numbered lists, blockquotes, and inline formatting. Produces a downloadable DOCX file.",
+      "tags": ["export", "docx", "formatting"],
+      "complexity": "complex",
+      "filePath": "utils/export.py",
+      "lineRange": [62, 157]
+    },
+    {
+      "id": "step:prd-export:provide-download-options",
+      "type": "step",
+      "name": "Provide Download Options",
+      "summary": "Renders three download/copy actions: Markdown file download, Word file download, and clipboard copy (with Lark/Feishu compatibility). Handles clipboard state via session_state.",
+      "tags": ["ui", "download", "clipboard"],
+      "complexity": "simple",
+      "filePath": "app.py",
+      "lineRange": [806, 833]
+    },
+    {
+      "id": "step:api-key-setup:select-provider",
+      "type": "step",
+      "name": "Select AI Provider",
+      "summary": "The user selects from a registry of pre-configured providers (DeepSeek, OpenAI, Claude, Zhipu, Qwen, Doubao, Custom) via a dropdown. Each provider defines its base URL, available models, and API key environment variable name.",
+      "tags": ["provider", "selection"],
+      "complexity": "simple",
+      "filePath": "app.py",
+      "lineRange": [253, 262]
+    },
+    {
+      "id": "step:api-key-setup:enter-api-key",
+      "type": "step",
+      "name": "Enter API Key",
+      "summary": "The user enters their API key in a password-type text input. The key is stored only in browser session state and never persisted to a server.",
+      "tags": ["api-key", "input", "security"],
+      "complexity": "simple",
+      "filePath": "app.py",
+      "lineRange": [264, 269]
+    },
+    {
+      "id": "step:api-key-setup:configure-base-url",
+      "type": "step",
+      "name": "Configure Custom Base URL",
+      "summary": "For the 'custom' provider, renders an additional text input for the API base URL. Pre-configured providers use their hardcoded base URLs.",
+      "tags": ["base-url", "custom-provider"],
+      "complexity": "simple",
+      "filePath": "app.py",
+      "lineRange": [273, 278]
+    },
+    {
+      "id": "step:api-key-setup:save-and-initialize-client",
+      "type": "step",
+      "name": "Save Credentials and Initialize Client",
+      "summary": "On save, validates the API key is non-empty, stores all credentials (key, provider, base_url, model names) in session state, and resets the cached OpenAI client so the next LLM call picks up the new configuration.",
+      "tags": ["validation", "state-management", "client-init"],
+      "complexity": "moderate",
+      "filePath": "app.py",
+      "lineRange": [286, 300]
+    },
+    {
+      "id": "step:provider-model-switching:select-model",
+      "type": "step",
+      "name": "Select Model for Fast and Pro Tiers",
+      "summary": "Renders a model dropdown populated from the current provider's model list. Changing the model updates both fast and pro model settings and triggers a client reset.",
+      "tags": ["model-selection", "switching"],
+      "complexity": "simple",
+      "filePath": "app.py",
+      "lineRange": [309, 324]
+    },
+    {
+      "id": "step:provider-model-switching:apply-model-change",
+      "type": "step",
+      "name": "Apply Model Change to Session",
+      "summary": "Updates session_state.model_fast and session_state.model_pro to the selected model, then calls reset_client() to invalidate the cached client.",
+      "tags": ["state-update", "client-reset"],
+      "complexity": "simple",
+      "filePath": "app.py",
+      "lineRange": [321, 324]
+    },
+    {
+      "id": "step:competitive-analysis:define-search-tool",
+      "type": "step",
+      "name": "Define Search Tool Schema for LLM",
+      "summary": "Provides a function-calling tool definition (web_search) that the LLM can invoke. The tool accepts a query string and is described as useful for finding competitor information and market data.",
+      "tags": ["tool-definition", "function-calling"],
+      "complexity": "simple",
+      "filePath": "utils/search.py",
+      "lineRange": [8, 24]
+    },
+    {
+      "id": "step:competitive-analysis:execute-agent-loop",
+      "type": "step",
+      "name": "Execute LLM Agent Loop with Tool Calls",
+      "summary": "Sends messages with the search tool to the LLM. If the LLM responds with tool_calls, executes web_search for each call, appends tool results, and loops. Maximum 2 iterations. If no tool calls, extracts the final content.",
+      "tags": ["agent-loop", "tool-calling", "orchestration"],
+      "complexity": "complex",
+      "filePath": "app.py",
+      "lineRange": [560, 583]
+    },
+    {
+      "id": "step:competitive-analysis:execute-web-search",
+      "type": "step",
+      "name": "Execute DuckDuckGo Web Search",
+      "summary": "Performs a POST request to DuckDuckGo Lite, parses the HTML response to extract search result titles, URLs, and snippets. Returns formatted Markdown links or an error message if search is unavailable.",
+      "tags": ["web-search", "duckduckgo", "html-parsing"],
+      "complexity": "moderate",
+      "filePath": "utils/search.py",
+      "lineRange": [37, 88]
+    },
+    {
+      "id": "step:competitive-analysis:fallback-to-ai-analysis",
+      "type": "step",
+      "name": "Fallback to AI-Knowledge-Only Analysis",
+      "summary": "If the agent loop produces no content, falls back to sending COMPETITIVE_PROMPT directly to the fast model, requesting competitive analysis based solely on the LLM's training knowledge.",
+      "tags": ["fallback", "degradation"],
+      "complexity": "simple",
+      "filePath": "app.py",
+      "lineRange": [585, 592]
+    },
+    {
+      "id": "step:quality-evaluation:send-evaluation-prompt",
+      "type": "step",
+      "name": "Send Evaluation Prompt to Fast Model",
+      "summary": "Constructs the evaluation prompt with the full PRD content and sends it to the fast model with low temperature (0.2) for consistent scoring.",
+      "tags": ["evaluation", "prompt"],
+      "complexity": "simple",
+      "filePath": "app.py",
+      "lineRange": [653, 657]
+    },
+    {
+      "id": "step:quality-evaluation:parse-evaluation-json",
+      "type": "step",
+      "name": "Parse Evaluation JSON Response",
+      "summary": "Extracts the JSON object from the LLM response using regex, parses it to extract completeness, quantification, and executability scores along with improvements and highlights.",
+      "tags": ["json-parsing", "regex"],
+      "complexity": "moderate",
+      "filePath": "app.py",
+      "lineRange": [658, 664]
+    },
+    {
+      "id": "step:quality-evaluation:render-score-display",
+      "type": "step",
+      "name": "Render Score Display with Visual Indicators",
+      "summary": "Displays three dimension scores as colored ring widgets (green/amber/red based on score thresholds), followed by improvement suggestions and highlights in a glass-card container.",
+      "tags": ["ui", "visualization", "score-display"],
+      "complexity": "moderate",
+      "filePath": "app.py",
+      "lineRange": [667, 698]
+    }
+  ],
+  "edges": [
+    { "source": "domain:prd-generation", "target": "flow:user-input-to-clarification", "type": "contains_flow", "direction": "forward", "weight": 1.0 },
+    { "source": "domain:prd-generation", "target": "flow:prd-generation", "type": "contains_flow", "direction": "forward", "weight": 1.0 },
+    { "source": "domain:prd-generation", "target": "flow:prd-refinement", "type": "contains_flow", "direction": "forward", "weight": 1.0 },
+    { "source": "domain:prd-generation", "target": "flow:prd-export", "type": "contains_flow", "direction": "forward", "weight": 1.0 },
+    { "source": "domain:ai-provider-management", "target": "flow:api-key-setup", "type": "contains_flow", "direction": "forward", "weight": 1.0 },
+    { "source": "domain:ai-provider-management", "target": "flow:provider-model-switching", "type": "contains_flow", "direction": "forward", "weight": 1.0 },
+    { "source": "domain:search-integration", "target": "flow:competitive-analysis", "type": "contains_flow", "direction": "forward", "weight": 1.0 },
+    { "source": "domain:quality-assessment", "target": "flow:quality-evaluation", "type": "contains_flow", "direction": "forward", "weight": 1.0 },
+    { "source": "domain:document-export", "target": "flow:prd-export", "type": "contains_flow", "direction": "forward", "weight": 1.0 },
+
+    { "source": "flow:user-input-to-clarification", "target": "step:user-input-to-clarification:validate-input", "type": "flow_step", "direction": "forward", "weight": 0.2 },
+    { "source": "flow:user-input-to-clarification", "target": "step:user-input-to-clarification:detect-ai-product", "type": "flow_step", "direction": "forward", "weight": 0.4 },
+    { "source": "flow:user-input-to-clarification", "target": "step:user-input-to-clarification:generate-clarify-questions", "type": "flow_step", "direction": "forward", "weight": 0.6 },
+    { "source": "flow:user-input-to-clarification", "target": "step:user-input-to-clarification:render-clarify-form", "type": "flow_step", "direction": "forward", "weight": 0.8 },
+    { "source": "flow:user-input-to-clarification", "target": "step:user-input-to-clarification:collect-answers", "type": "flow_step", "direction": "forward", "weight": 1.0 },
+
+    { "source": "flow:prd-generation", "target": "step:prd-generation:run-competitive-analysis", "type": "flow_step", "direction": "forward", "weight": 0.1 },
+    { "source": "flow:prd-generation", "target": "step:prd-generation:construct-generation-prompt", "type": "flow_step", "direction": "forward", "weight": 0.3 },
+    { "source": "flow:prd-generation", "target": "step:prd-generation:stream-prd-content", "type": "flow_step", "direction": "forward", "weight": 0.5 },
+    { "source": "flow:prd-generation", "target": "step:prd-generation:run-quality-evaluation", "type": "flow_step", "direction": "forward", "weight": 0.6 },
+    { "source": "flow:prd-generation", "target": "step:prd-generation:render-quality-report", "type": "flow_step", "direction": "forward", "weight": 0.7 },
+    { "source": "flow:prd-generation", "target": "step:prd-generation:parse-prd-sections", "type": "flow_step", "direction": "forward", "weight": 0.9 },
+
+    { "source": "flow:prd-refinement", "target": "step:prd-refinement:select-section", "type": "flow_step", "direction": "forward", "weight": 0.2 },
+    { "source": "flow:prd-refinement", "target": "step:prd-refinement:provide-refinement-instructions", "type": "flow_step", "direction": "forward", "weight": 0.4 },
+    { "source": "flow:prd-refinement", "target": "step:prd-refinement:call-refine-llm", "type": "flow_step", "direction": "forward", "weight": 0.6 },
+    { "source": "flow:prd-refinement", "target": "step:prd-refinement:merge-refined-section", "type": "flow_step", "direction": "forward", "weight": 0.8 },
+
+    { "source": "flow:prd-export", "target": "step:prd-export:render-preview", "type": "flow_step", "direction": "forward", "weight": 0.2 },
+    { "source": "flow:prd-export", "target": "step:prd-export:generate-markdown-export", "type": "flow_step", "direction": "forward", "weight": 0.4 },
+    { "source": "flow:prd-export", "target": "step:prd-export:generate-docx-export", "type": "flow_step", "direction": "forward", "weight": 0.6 },
+    { "source": "flow:prd-export", "target": "step:prd-export:provide-download-options", "type": "flow_step", "direction": "forward", "weight": 0.8 },
+
+    { "source": "flow:api-key-setup", "target": "step:api-key-setup:select-provider", "type": "flow_step", "direction": "forward", "weight": 0.2 },
+    { "source": "flow:api-key-setup", "target": "step:api-key-setup:enter-api-key", "type": "flow_step", "direction": "forward", "weight": 0.4 },
+    { "source": "flow:api-key-setup", "target": "step:api-key-setup:configure-base-url", "type": "flow_step", "direction": "forward", "weight": 0.6 },
+    { "source": "flow:api-key-setup", "target": "step:api-key-setup:save-and-initialize-client", "type": "flow_step", "direction": "forward", "weight": 0.8 },
+
+    { "source": "flow:provider-model-switching", "target": "step:provider-model-switching:select-model", "type": "flow_step", "direction": "forward", "weight": 0.3 },
+    { "source": "flow:provider-model-switching", "target": "step:provider-model-switching:apply-model-change", "type": "flow_step", "direction": "forward", "weight": 0.7 },
+
+    { "source": "flow:competitive-analysis", "target": "step:competitive-analysis:define-search-tool", "type": "flow_step", "direction": "forward", "weight": 0.1 },
+    { "source": "flow:competitive-analysis", "target": "step:competitive-analysis:execute-agent-loop", "type": "flow_step", "direction": "forward", "weight": 0.3 },
+    { "source": "flow:competitive-analysis", "target": "step:competitive-analysis:execute-web-search", "type": "flow_step", "direction": "forward", "weight": 0.5 },
+    { "source": "flow:competitive-analysis", "target": "step:competitive-analysis:fallback-to-ai-analysis", "type": "flow_step", "direction": "forward", "weight": 0.7 },
+
+    { "source": "flow:quality-evaluation", "target": "step:quality-evaluation:send-evaluation-prompt", "type": "flow_step", "direction": "forward", "weight": 0.2 },
+    { "source": "flow:quality-evaluation", "target": "step:quality-evaluation:parse-evaluation-json", "type": "flow_step", "direction": "forward", "weight": 0.5 },
+    { "source": "flow:quality-evaluation", "target": "step:quality-evaluation:render-score-display", "type": "flow_step", "direction": "forward", "weight": 0.8 },
+
+    { "source": "domain:prd-generation", "target": "domain:ai-provider-management", "type": "cross_domain", "direction": "forward", "description": "PRD Generation delegates all LLM calls (clarification, generation, refinement, evaluation) to AI Provider Management for client instantiation and model routing.", "weight": 0.8 },
+    { "source": "domain:prd-generation", "target": "domain:search-integration", "type": "cross_domain", "direction": "forward", "description": "PRD Generation invokes Search Integration during the generate step to produce competitive analysis that feeds into the PRD content.", "weight": 0.6 },
+    { "source": "domain:prd-generation", "target": "domain:quality-assessment", "type": "cross_domain", "direction": "forward", "description": "PRD Generation triggers Quality Assessment after content generation to produce a quality report displayed to the user.", "weight": 0.5 },
+    { "source": "domain:prd-generation", "target": "domain:document-export", "type": "cross_domain", "direction": "forward", "description": "PRD Generation hands off the finalized PRD content to Document Export for Markdown and DOCX formatting and download.", "weight": 0.4 },
+    { "source": "domain:search-integration", "target": "domain:ai-provider-management", "type": "cross_domain", "direction": "forward", "description": "Search Integration uses AI Provider Management to obtain the LLM client for the agent-mode tool calling loop.", "weight": 0.6 },
+    { "source": "domain:quality-assessment", "target": "domain:ai-provider-management", "type": "cross_domain", "direction": "forward", "description": "Quality Assessment uses AI Provider Management to call the fast model for PRD quality scoring.", "weight": 0.5 }
+  ],
+  "layers": [],
+  "tour": []
+}
