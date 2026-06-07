@@ -74,7 +74,7 @@ def build_generation_prompt(user_input, clarify_answers, is_ai_product, template
     ai_section = ""
     if is_ai_product:
         ai_section = (
-            "### 8. AI 专项\n"
+            "\n## 12. AI 专项\n"
             "- 模型能力边界（能做什么/不能做什么）\n"
             "- Prompt 设计策略\n"
             "- 准确率/幻觉率指标要求\n"
