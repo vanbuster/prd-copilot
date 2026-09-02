@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PRD Copilot — 把一句话灵感变成能过质量门禁的完整 PRD</title>
+<meta name="description" content="一个 Claude Code skill：三道质量门（红线扫描 → 结构自检 → 独立评审），P0 清零才放行。零服务、零依赖、零 API key。">
+<style>
+  :root{
+    --ink:#1a1a1a; --sub:#5c5c5c; --faint:#8a8a8a;
+    --bg:#faf9f7; --card:#ffffff; --line:#e8e5e0;
+    --accent:#b0413e; --accent-soft:#f7e9e8;
+    --pass:#2e7d4f; --pass-soft:#e8f3ec;
+    --mono:"SF Mono",ui-monospace,Menlo,Consolas,monospace;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:-apple-system,"PingFang SC","Noto Sans SC","Microsoft YaHei",sans-serif;
+       color:var(--ink);background:var(--bg);line-height:1.75;
+       -webkit-font-smoothing:antialiased}
+  .wrap{max-width:860px;margin:0 auto;padding:0 24px}
+  a{color:var(--accent);text-decoration:none}
+  a:hover{text-decoration:underline}
+
+  /* Hero */
+  header{padding:88px 0 56px;border-bottom:1px solid var(--line)}
+  .kicker{font-family:var(--mono);font-size:13px;letter-spacing:.12em;color:var(--accent);
+          text-transform:uppercase;margin-bottom:20px}
+  h1{font-size:clamp(30px,5.6vw,46px);line-height:1.25;font-weight:700;letter-spacing:-.01em}
+  .tagline{font-size:clamp(16px,2.4vw,19px);color:var(--sub);margin:20px 0 8px;max-width:40em}
+  .zeros{font-family:var(--mono);font-size:13px;color:var(--faint);margin-bottom:32px}
+  .install{background:#141414;color:#e8e8e8;border-radius:10px;padding:18px 20px;
+           font-family:var(--mono);font-size:13.5px;line-height:1.9;overflow-x:auto;
+           white-space:pre;margin-bottom:16px}
+  .install .c{color:#7a7a7a}
+  .btns{display:flex;gap:12px;flex-wrap:wrap}
+  .btn{display:inline-block;padding:10px 22px;border-radius:8px;font-size:14.5px;font-weight:600}
+  .btn-primary{background:var(--ink);color:#fff}
+  .btn-primary:hover{background:#000;text-decoration:none}
+  .btn-ghost{border:1.5px solid var(--line);color:var(--ink)}
+  .btn-ghost:hover{border-color:var(--ink);text-decoration:none}
+
+  /* Sections */
+  section{padding:60px 0;border-bottom:1px solid var(--line)}
+  h2{font-size:clamp(22px,3.4vw,28px);margin-bottom:8px;letter-spacing:-.01em}
+  .lede{color:var(--sub);margin-bottom:32px;max-width:44em}
+  h3{font-size:17px;margin-bottom:8px}
+
+  /* Gate cards */
+  .gates{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:16px}
+  .gate{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:22px}
+  .gate .num{font-family:var(--mono);font-size:12px;color:var(--accent);margin-bottom:10px}
+  .gate p{font-size:14px;color:var(--sub)}
+  .gate strong{color:var(--ink)}
+
+  /* Pipeline */
+  .pipe{background:var(--card);border:1px solid var(--line);border-radius:12px;
+        padding:20px 24px;font-family:var(--mono);font-size:12.5px;line-height:2.1;
+        overflow-x:auto;white-space:pre;color:var(--sub)}
+  .pipe b{color:var(--ink);font-weight:600}
+
+  /* Eval table */
+  table{width:100%;border-collapse:collapse;background:var(--card);border:1px solid var(--line);
+        border-radius:12px;overflow:hidden;font-size:14px}
+  th,td{padding:12px 16px;text-align:left;border-bottom:1px solid var(--line)}
+  th{background:#f4f2ef;font-size:13px;color:var(--sub);font-weight:600}
+  tr:last-child td{border-bottom:none}
+  .tag{display:inline-block;padding:2px 10px;border-radius:20px;font-size:12.5px;font-weight:600}
+  .tag-pass{background:var(--pass-soft);color:var(--pass)}
+  .tag-fail{background:var(--accent-soft);color:var(--accent)}
+
+  /* Story / badge */
+  .badge-line{background:var(--pass-soft);border:1px solid #cfe5d8;border-radius:10px;
+              padding:14px 18px;font-size:13.5px;font-family:var(--mono);color:var(--pass);
+              overflow-x:auto;white-space:nowrap;margin:20px 0}
+  .story{background:var(--card);border-left:3px solid var(--accent);border-radius:0 10px 10px 0;
+         padding:18px 22px;margin:24px 0;font-size:15px}
+  .story .t{font-weight:700;margin-bottom:6px}
+  .story p{color:var(--sub);font-size:14.5px}
+
+  /* Handoff list */
+  .handoff{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:22px 24px}
+  .handoff li{margin-left:1.2em;color:var(--sub);font-size:14.5px;margin-bottom:6px}
+  .handoff li b{color:var(--ink)}
+
+  /* Honest section */
+  .honest{background:#f4f2ef;border-radius:12px;padding:26px 28px}
+  .honest p{color:var(--sub);font-size:15px;max-width:46em}
+
+  footer{padding:44px 0 64px;color:var(--faint);font-size:13.5px}
+  footer .row{display:flex;gap:20px;flex-wrap:wrap}
+  @media(max-width:560px){header{padding:56px 0 40px}section{padding:44px 0}}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap">
+    <div class="kicker">Claude Code Skill · 开源 MIT</div>
+    <h1>把一句话灵感，<br>变成能过质量门禁的完整 PRD</h1>
+    <p class="tagline">PRD Copilot 不是又一个 PRD prompt——生成只是前半截，<strong style="color:var(--ink)">质量门才是本体</strong>：产出必须通过三道门，P0 扣分项清零才放行，不过门自动重写。</p>
+    <p class="zeros">零服务 · 零依赖 · 零 API key —— 跑在你自己的 Claude Code 里，无第三方服务、不额外收集数据</p>
+    <div class="install"><span class="c"># 安装（30 秒）</span>
+git clone https://github.com/vanbuster/prd-copilot.git
+mkdir -p ~/.claude/skills && ln -s "$PWD/prd-copilot/skill" ~/.claude/skills/prd-copilot
+
+<span class="c"># 新开 Claude Code 会话，说：</span>
+把这个想法写成 PRD：&lt;你的一句话&gt;</div>
+    <div class="btns">
+      <a class="btn btn-primary" href="https://github.com/vanbuster/prd-copilot">GitHub 仓库</a>
+      <a class="btn btn-ghost" href="https://github.com/vanbuster/prd-copilot/blob/main/examples/2026-09-02_prd-copilot_v1.md">看一份真实产出</a>
+    </div>
+  </div>
+</header>
+
+<section>
+  <div class="wrap">
+    <h2>三道质量门</h2>
+    <p class="lede">"优化用户体验""提升性能""待定"——这类空洞表述在产出里一个都活不下来。</p>
+    <div class="gates">
+      <div class="gate">
+        <div class="num">门 1 / GATE 1</div>
+        <h3>红线扫描</h3>
+        <p><strong>8 条红线主表 + 空洞形容词扩展表</strong>，字面级可 grep。命中即定位改写为量化表述："简单易用"必须变成"N 步完成 X 操作"。</p>
+      </div>
+      <div class="gate">
+        <div class="num">门 2 / GATE 2</div>
+        <h3>结构自检 · 14 项</h3>
+        <p>用户故事三路径验收、非功能全量化、流程步步有异常分支、<strong>数据引用必须有来源或"假设值"标注</strong>——编造数据过不了这道门。</p>
+      </div>
+      <div class="gate">
+        <div class="num">门 3 / GATE 3</div>
+        <h3>独立评审</h3>
+        <p>评审跑在<strong>隔离的子代理</strong>里，只看产出、不看生成过程——生成者不许给自己打分。放行条件是 <strong>P0 扣分项清零</strong>，不是分数好看。</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <h2>管线</h2>
+    <p class="lede">澄清有纪律：一轮 ≤4 问、素材越厚问越少、信息全清晰则 0 问、每题告诉你为什么问。生成分模块写入，4000+ 字不截断。</p>
+    <div class="pipe"><b>输入</b>  一句话灵感 / inbox 碎片 / 现成文档
+  ↓  <b>吸收上下文</b>（inbox 只读 · 语义判定 AI 产品 · 选行业模板）
+  ↓  <b>澄清 ≤4 问</b>（一轮打包 · 素材越厚问越少 · 全清晰 0 问）
+  ↓  <b>Brief</b>（有冲突或判定存疑才等你确认）
+  ↓  <b>分模块生成 11+1</b>（逐模块写入，不截断）
+  ↓  <b>门 1 红线扫描</b> → <b>门 2 结构自检 14 项</b> → <b>门 3 独立评审</b>
+<b>落盘</b>  P0 清零放行 · 不过门重写 · 最多 2 轮 · 2 轮不过如实报告不谎报</div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <h2>它敢测自己</h2>
+    <p class="lede">仓库自带回归评测集（evals/）：判定全部二值断言，评审强制引用原文为证据，失败的 run 不删除、不策展。首轮结果：</p>
+    <div style="overflow-x:auto;border:1px solid var(--line);border-radius:12px"><table style="border:none">
+      <tr><th>用例</th><th>测什么</th><th>结果</th></tr>
+      <tr><td style="font-family:var(--mono);font-size:13px">C1-thin-input</td><td>薄输入全流程冒烟</td><td><span class="tag tag-pass">5/5 断言通过</span></td></tr>
+      <tr><td style="font-family:var(--mono);font-size:13px">C4-ai-negative</td><td>满篇"智能"的规则引擎产品，会不会被误判成 AI 产品（回归真实历史 bug）</td><td><span class="tag tag-pass">4/4 · 未误判</span></td></tr>
+      <tr><td style="font-family:var(--mono);font-size:13px">C8-redline-bait</td><td>输入塞满 7 处空洞表述——门禁是拦住，还是复读出来</td><td><span class="tag tag-pass">7/7 · 零复读</span></td></tr>
+      <tr><td style="font-family:var(--mono);font-size:13px">self-bootstrap</td><td>用 skill 给 prd-copilot 自己生成 PRD</td><td><span class="tag tag-fail">第 1 轮被拒</span> → <span class="tag tag-pass">第 2 轮放行</span></td></tr>
+    </table></div>
+
+    <div class="story">
+      <div class="t">被自己的门拦下，是这个项目最好的广告</div>
+      <p>自举 PRD 的第 1 轮，独立评审揪出一处 P0——§1.3 对竞品的断言没有来源、没有"假设值"标注——<b>拒绝放行</b>。第 2 轮限定样本范围、补上标注后才过门。两轮轨迹原样保留在 example 文档里，没有美化。</p>
+    </div>
+
+    <div class="badge-line">🛡 质量门通过 · 完整性 94 / 量化度 95 / 可执行性 100 · 红线 0 命中 · 自检 14/14 · 独立评审（第 2 轮 P0 清零）</div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <h2>你拿到的不只是一份文档</h2>
+    <p class="lede">每份 PRD 文末自带「交付前需你人工确认的 N 处」清单——AI 自动修复的不占清单，上面只有必须由你接管的。你拿它去评审会时，清楚知道哪几处是 AI 的假设。自举 PRD 的真实清单节选：</p>
+    <div class="handoff">
+      <ul>
+        <li><b>§1.2 背景</b> — 写 PRD 耗时 4-8 小时为假设值：无调研来源，按团队实际抽样</li>
+        <li><b>§5.1 性能表</b> — 端到端 ≤15 分钟为假设值：需多轮实测计时</li>
+        <li><b>§7.1/§7.2</b> — 北极星与业务指标目标值为假设值：零基线，首月校准</li>
+        <li><b>§9.1 假设一</b> — "PM 愿意用终端"是最高风险假设：试用期到期须你裁决续废</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <h2>多运行时 · 定制即改 Markdown</h2>
+    <p class="lede">skill 本体是纯 markdown（SKILL.md + references/）。任何按 SKILL.md 协议热加载技能的 agent 运行时都能用：</p>
+    <div class="install"><span class="c"># 通用技能池（DSH / QClaw 等读 ~/.agents/skills/ 的运行时）</span>
+ln -s "$PWD/prd-copilot/skill" ~/.agents/skills/prd-copilot</div>
+    <p style="color:var(--sub);font-size:14.5px">想改红线词表、行业模板、放行标准？fork 后直接改 <code style="font-family:var(--mono);font-size:13px">skill/references/</code> 里的对应文件——prompt 即代码，没有配置系统。改完质量门跑一遍 <code style="font-family:var(--mono);font-size:13px">evals/</code>。</p>
+  </div>
+</section>
+
+<section style="border-bottom:none">
+  <div class="wrap">
+    <div class="honest">
+      <h2 style="font-size:20px">为什么这个网站上没有"在线生成"按钮</h2>
+      <p>本项目的上一版就是 Web 应用（约 2000 行 Streamlit，保留在 <a href="https://github.com/vanbuster/prd-copilot/tree/main/legacy/streamlit-v1">legacy/</a>，tag v1.0.0 可跑）。审计结论：全部真实价值在提示词层，壳只会稀释它——独立评审、文件落盘、与你工作流的衔接，都只有在 agent 运行时里才成立。所以生成能力只以 skill 形态发布，本页只负责把你送到安装命令那一行。</p>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <div class="row">
+      <a href="https://github.com/vanbuster/prd-copilot">GitHub</a>
+      <a href="https://github.com/vanbuster/prd-copilot/blob/main/LICENSE">MIT License</a>
+      <a href="https://github.com/vanbuster/prd-copilot/tree/main/evals">评测集与原始 runs</a>
+    </div>
+    <p style="margin-top:12px">PRD Copilot · prompts 为中文，产出语言跟随输入</p>
+  </div>
+</footer>
+
+</body>
+</html>
