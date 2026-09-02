@@ -37,8 +37,18 @@ symlink 保持单一真相源（`git pull` 即升级）；运行时不跟随 sym
 与其他 PRD 类 skill 消歧：**产品级 0→1 完整 PRD 归本 skill，单功能详细规格归微交互
 类 skill**。卸载 = 删链接（注册过 dispatch 索引的，同步移除对应条目）。
 
-不提供网页版/独立 App：上一版就是 Web 应用（见 legacy/），全部真实价值在提示词层，
-壳只会稀释它——这是被验证过的结论，不是省事。
+### 不想开终端？本地控制台
+
+```bash
+cd prd-copilot/app && npm install && npm start     # → http://127.0.0.1:4870
+```
+
+浏览器里的聊天壳：澄清问题弹卡片、三道门进度一行一行显示、产出在右栏预览下载。
+**它不含任何提示词**——后端用 Claude Agent SDK（Claude Code 的库形态）运行的就是上面那个 skill，
+独立评审子代理照跑。详见 [`app/README.md`](app/README.md)。
+
+不做的是**云端在线生成**：上一版就是 Web 应用（见 legacy/），把提示词复制进应用里的做法必然
+漂移；现在壳与 skill 是同一份真相源，壳只负责对话搬运。
 
 ## 三种输入方式
 

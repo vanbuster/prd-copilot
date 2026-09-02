@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PRD Copilot 控制台</title>
+<style>
+  :root{--ink:#1a1a1a;--sub:#5c5c5c;--faint:#8a8a8a;--bg:#faf9f7;--card:#fff;--line:#e8e5e0;
+        --accent:#b0413e;--accent-soft:#f7e9e8;--pass:#2e7d4f;--pass-soft:#e8f3ec;--warn:#8a6d1a;--warn-soft:#fbf3dc;
+        --mono:"SF Mono",ui-monospace,Menlo,Consolas,monospace}
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{height:100%}
+  body{font-family:-apple-system,"PingFang SC","Noto Sans SC","Microsoft YaHei",sans-serif;color:var(--ink);background:var(--bg);
+       line-height:1.7;-webkit-font-smoothing:antialiased;display:flex;flex-direction:column}
+  a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
+  header{display:flex;align-items:center;gap:14px;padding:12px 20px;border-bottom:1px solid var(--line);background:var(--card)}
+  header h1{font-size:16px;font-weight:700;letter-spacing:-.01em}
+  header .k{font-family:var(--mono);font-size:11px;color:var(--accent);letter-spacing:.1em;text-transform:uppercase}
+  .spacer{flex:1}
+  .pill{font-size:12px;padding:3px 10px;border-radius:20px;font-family:var(--mono);border:1px solid var(--line);color:var(--sub);background:#f4f2ef}
+  .pill.ok{background:var(--pass-soft);color:var(--pass);border-color:#cfe5d8}
+  .pill.bad{background:var(--accent-soft);color:var(--accent);border-color:#efc9c7}
+  .btn{padding:6px 14px;border-radius:8px;font-size:13px;font-weight:600;border:1.5px solid var(--line);background:var(--card);color:var(--ink);cursor:pointer}
+  .btn:hover{border-color:var(--ink)}
+  .btn.primary{background:var(--ink);color:#fff;border-color:var(--ink)}
+  .btn.primary:disabled{opacity:.45;cursor:not-allowed}
+  .btn.danger{color:var(--accent);border-color:#efc9c7}
+  main{flex:1;display:grid;grid-template-columns:minmax(0,1fr) 340px;min-height:0}
+  @media(max-width:900px){main{grid-template-columns:1fr}aside{display:none}}
+  #chat{display:flex;flex-direction:column;min-height:0}
+  #log{flex:1;overflow-y:auto;padding:20px 24px;display:flex;flex-direction:column;gap:14px}
+  .msg{max-width:820px}
+  .msg.user{align-self:flex-end;background:var(--ink);color:#fff;border-radius:14px 14px 4px 14px;padding:10px 16px;white-space:pre-wrap;font-size:15px}
+  .msg.assistant{align-self:flex-start;background:var(--card);border:1px solid var(--line);border-radius:14px 14px 14px 4px;padding:14px 18px;font-size:15px;width:100%}
+  .md h1,.md h2,.md h3{margin:14px 0 6px;line-height:1.3}.md h1{font-size:20px}.md h2{font-size:17px}.md h3{font-size:15px}
+  .md p{margin:6px 0}.md ul,.md ol{margin:6px 0 6px 1.4em}.md li{margin:2px 0}
+  .md code{font-family:var(--mono);font-size:13px;background:#f4f2ef;padding:1px 5px;border-radius:4px}
+  .md pre{background:#141414;color:#e8e8e8;padding:12px 14px;border-radius:8px;overflow-x:auto;font-family:var(--mono);font-size:12.5px;margin:8px 0}
+  .md pre code{background:none;padding:0;color:inherit}
+  .md blockquote{border-left:3px solid var(--line);padding-left:12px;color:var(--sub);margin:6px 0}
+  .md table{border-collapse:collapse;margin:8px 0;font-size:13.5px;display:block;overflow-x:auto}
+  .md th,.md td{border:1px solid var(--line);padding:5px 10px;text-align:left}.md th{background:#f4f2ef}
+  .md hr{border:0;border-top:1px solid var(--line);margin:12px 0}
+  .tools{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+  .tool{font-family:var(--mono);font-size:11.5px;padding:2px 9px;border-radius:20px;background:#f4f2ef;color:var(--sub);border:1px solid var(--line)}
+  .tool.live{border-color:#cfe5d8;color:var(--pass);background:var(--pass-soft)}
+  .qcard{align-self:flex-start;width:100%;max-width:820px;background:var(--warn-soft);border:1px solid #efe1b3;border-radius:14px;padding:16px 18px}
+  .qcard .t{font-weight:700;margin-bottom:8px;font-size:14px;color:var(--warn)}
+  .q{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin:8px 0}
+  .q .qh{font-family:var(--mono);font-size:11px;color:var(--accent);letter-spacing:.08em;text-transform:uppercase}
+  .q .qt{font-weight:600;margin:4px 0 8px;font-size:14.5px}
+  .q label{display:flex;gap:8px;align-items:flex-start;padding:6px 8px;border-radius:8px;cursor:pointer;font-size:14px}
+  .q label:hover{background:#f4f2ef}
+  .q label small{color:var(--sub);display:block;font-size:12.5px}
+  .q input[type=text]{width:100%;padding:7px 10px;border:1px solid var(--line);border-radius:8px;font-size:14px;margin-top:4px;font-family:inherit}
+  .sys{align-self:center;font-size:12.5px;color:var(--faint);font-family:var(--mono)}
+  .err{align-self:flex-start;background:var(--accent-soft);border:1px solid #efc9c7;color:var(--accent);border-radius:10px;padding:10px 14px;font-size:13.5px;max-width:820px;white-space:pre-wrap}
+  .result{align-self:flex-start;font-size:12.5px;color:var(--faint);font-family:var(--mono)}
+  #composer{border-top:1px solid var(--line);background:var(--card);padding:12px 20px;display:flex;gap:10px;align-items:flex-end}
+  #input{flex:1;resize:none;min-height:46px;max-height:180px;padding:11px 14px;border:1.5px solid var(--line);border-radius:12px;font-size:15px;font-family:inherit;line-height:1.5;background:var(--bg)}
+  #input:focus{outline:none;border-color:var(--ink)}
+  aside{border-left:1px solid var(--line);background:var(--card);display:flex;flex-direction:column;min-height:0}
+  aside h2{font-size:13px;font-family:var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--sub);padding:14px 18px 8px}
+  #files{flex:1;overflow-y:auto;padding:0 10px 10px}
+  .file{display:block;padding:10px 12px;border-radius:10px;cursor:pointer;border:1px solid transparent}
+  .file:hover{background:#f4f2ef;border-color:var(--line)}
+  .file .n{font-size:13.5px;font-weight:600;word-break:break-all}
+  .file .m{font-size:11.5px;color:var(--faint);font-family:var(--mono)}
+  .empty{padding:20px 18px;color:var(--faint);font-size:13.5px}
+  aside .tip{padding:12px 18px;border-top:1px solid var(--line);font-size:12.5px;color:var(--sub)}
+  #drawer{position:fixed;inset:0;background:rgba(0,0,0,.35);display:none;z-index:9}
+  #drawer.open{display:block}
+  #drawer .panel{position:absolute;top:0;right:0;bottom:0;width:min(860px,92vw);background:var(--card);overflow-y:auto;padding:24px 32px;box-shadow:-8px 0 30px rgba(0,0,0,.15)}
+  #drawer .bar{display:flex;gap:10px;align-items:center;margin-bottom:14px;position:sticky;top:0;background:var(--card);padding-bottom:10px;border-bottom:1px solid var(--line)}
+  #drawer .bar .name{font-family:var(--mono);font-size:13px;flex:1;word-break:break-all}
+  .banner{margin:14px 24px 0;background:var(--accent-soft);border:1px solid #efc9c7;border-radius:12px;padding:14px 18px;font-size:14px;line-height:1.7}
+  .banner code{font-family:var(--mono);background:#fff;padding:1px 6px;border-radius:4px}
+  .hint{margin:18px 24px 0;color:var(--sub);font-size:14px;max-width:820px}
+  .hint b{color:var(--ink)}
+</style>
+</head>
+<body>
+<header>
+  <div><div class="k">PRD Copilot</div><h1>控制台 · 同一个 skill，换个壳对话</h1></div>
+  <div class="spacer"></div>
+  <span id="auth" class="pill">检查登录态…</span>
+  <span id="wd" class="pill" title="产出目录">…</span>
+  <button class="btn" id="newBtn">新对话</button>
+</header>
+<div id="banner" class="banner" style="display:none"></div>
+<main>
+  <section id="chat">
+    <div id="log">
+      <div class="hint">直接说：<b>把这个想法写成 PRD：……</b> ／ <b>从 inbox 出一份 X 的 PRD</b> ／ 或粘一份需求笔记让它整理。<br>
+      澄清问题会以卡片形式弹出；三道质量门的进度显示在气泡下方；产出落在右侧「产出」栏，点开可预览和下载。</div>
+    </div>
+    <div id="composer">
+      <textarea id="input" placeholder="有想法了就往这里说…（Enter 发送，Shift+Enter 换行）"></textarea>
+      <button class="btn danger" id="stopBtn" style="display:none">停止</button>
+      <button class="btn primary" id="sendBtn">发送</button>
+    </div>
+  </section>
+  <aside>
+    <h2>产出 · prds/</h2>
+    <div id="files"><div class="empty">还没有产出。第一份 PRD 生成后会出现在这里。</div></div>
+    <div class="tip">每份 PRD 文末都有「交付前需你人工确认的 N 处」清单——先看那里。</div>
+  </aside>
+</main>
+<div id="drawer"><div class="panel"><div class="bar"><span class="name" id="dname"></span><a class="btn" id="dl" download>下载 .md</a><button class="btn" id="dclose">关闭</button></div><div class="md" id="dbody"></div></div></div>
+
+<script>
+(() => {
+  const $ = s => document.querySelector(s);
+  const log = $('#log'), input = $('#input'), sendBtn = $('#sendBtn'), stopBtn = $('#stopBtn');
+  let sessionKey = 'default', es = null, cur = null, curTools = null, busy = false;
+
+  // --- 轻量 markdown 渲染（无依赖）---
+  function esc(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
+  function inline(s){
+    return esc(s).replace(/`([^`]+)`/g,'<code>$1</code>')
+      .replace(/\*\*([^*]+)\*\*/g,'<b>$1</b>').replace(/(^|[^*])\*([^*\n]+)\*/g,'$1<i>$2</i>')
+      .replace(/\[([^\]]+)\]\((https?:[^)]+)\)/g,'<a href="$2" target="_blank">$1</a>');
+  }
+  function md(src){
+    const lines = src.split('\n'); let out = [], i = 0;
+    while (i < lines.length){
+      let l = lines[i];
+      if (/^```/.test(l)){ let buf=[]; i++; while(i<lines.length && !/^```/.test(lines[i])) buf.push(lines[i++]); i++; out.push('<pre><code>'+esc(buf.join('\n'))+'</code></pre>'); continue; }
+      if (/^\|/.test(l)){ let rows=[]; while(i<lines.length && /^\|/.test(lines[i])) rows.push(lines[i++]);
+        const cells = r => r.replace(/^\||\|$/g,'').split('|').map(c=>c.trim());
+        let html='<table>'; rows.forEach((r,ri)=>{ if(/^\|?\s*:?-{2,}/.test(r)) return; const tag = ri===0?'th':'td'; html+='<tr>'+cells(r).map(c=>`<${tag}>${inline(c)}</${tag}>`).join('')+'</tr>'; });
+        out.push(html+'</table>'); continue; }
+      let m;
+      if ((m=/^(#{1,6})\s+(.*)/.exec(l))){ out.push(`<h${m[1].length}>${inline(m[2])}</h${m[1].length}>`); i++; continue; }
+      if (/^\s*---+\s*$/.test(l)){ out.push('<hr>'); i++; continue; }
+      if (/^>\s?/.test(l)){ let buf=[]; while(i<lines.length && /^>\s?/.test(lines[i])) buf.push(lines[i++].replace(/^>\s?/,'')); out.push('<blockquote>'+md(buf.join('\n'))+'</blockquote>'); continue; }
+      if (/^\s*([-*]|\d+\.)\s+/.test(l)){ const ord=/^\s*\d+\./.test(l); let buf=[]; while(i<lines.length && /^\s*([-*]|\d+\.)\s+/.test(lines[i])) buf.push(lines[i++].replace(/^\s*([-*]|\d+\.)\s+/,''));
+        out.push((ord?'<ol>':'<ul>')+buf.map(x=>'<li>'+inline(x.replace(/^\[( |x)\]\s*/,(a,b)=>b==='x'?'☑ ':'☐ '))+'</li>').join('')+(ord?'</ol>':'</ul>')); continue; }
+      if (l.trim()===''){ i++; continue; }
+      let buf=[l]; i++; while(i<lines.length && lines[i].trim()!=='' && !/^(#|```|\||>|\s*[-*]\s|\s*\d+\.\s|\s*---)/.test(lines[i])) buf.push(lines[i++]);
+      out.push('<p>'+inline(buf.join('\n')).replace(/\n/g,'<br>')+'</p>');
+    }
+    return out.join('');
+  }
+
+  function add(el){ log.appendChild(el); log.scrollTop = log.scrollHeight; return el; }
+  function sysLine(t){ const d=document.createElement('div'); d.className='sys'; d.textContent=t; return add(d); }
+  function errLine(t){ const d=document.createElement('div'); d.className='err'; d.textContent=t; return add(d); }
+  function userMsg(t){ const d=document.createElement('div'); d.className='msg user'; d.textContent=t; return add(d); }
+  function newAssistant(){ const d=document.createElement('div'); d.className='msg assistant'; const b=document.createElement('div'); b.className='md'; d.appendChild(b); curTools=document.createElement('div'); curTools.className='tools'; d.appendChild(curTools); add(d); cur={el:d,body:b,text:''}; return cur; }
+  function appendText(t){ if(!cur) newAssistant(); cur.text+=t; cur.body.innerHTML=md(cur.text); log.scrollTop=log.scrollHeight; }
+  function toolChip(name, summary, live){ if(!cur) newAssistant(); const c=document.createElement('span'); c.className='tool'+(live?' live':''); c.textContent=summary||name; curTools.appendChild(c); log.scrollTop=log.scrollHeight; return c; }
+  function setBusy(b){ busy=b; sendBtn.disabled=b; stopBtn.style.display=b?'':'none'; }
+
+  function questionCard(ev){
+    const card=document.createElement('div'); card.className='qcard';
+    card.innerHTML='<div class="t">🛈 需要你回答几个问题（每题附了为什么问）</div>';
+    const form=document.createElement('div');
+    ev.questions.forEach((q,qi)=>{
+      const box=document.createElement('div'); box.className='q';
+      box.innerHTML=`<div class="qh">${esc(q.header||('Q'+(qi+1)))}${q.multiSelect?' · 可多选':''}</div><div class="qt">${esc(q.question)}</div>`;
+      const type=q.multiSelect?'checkbox':'radio';
+      q.options.forEach(o=>{ const lab=document.createElement('label'); lab.innerHTML=`<input type="${type}" name="q${qi}" value="${esc(o.label)}"><span>${esc(o.label)}<small>${esc(o.description||'')}</small></span>`; box.appendChild(lab); });
+      const other=document.createElement('label'); other.innerHTML=`<input type="${type}" name="q${qi}" value="__other__"><span style="flex:1">其他（自己写）<input type="text" placeholder="输入你的回答…" data-other="q${qi}"></span>`; box.appendChild(other);
+      form.appendChild(box);
+    });
+    card.appendChild(form);
+    const bar=document.createElement('div'); bar.style.cssText='display:flex;gap:10px;margin-top:10px';
+    const ok=document.createElement('button'); ok.className='btn primary'; ok.textContent='提交回答';
+    const skip=document.createElement('button'); skip.className='btn'; skip.textContent='你看着办';
+    bar.appendChild(ok); bar.appendChild(skip); card.appendChild(bar); add(card);
+    const finish=(answers,response)=>{ card.querySelectorAll('button,input').forEach(x=>x.disabled=true); card.style.opacity=.6;
+      fetch('/api/answer',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({s:sessionKey,requestId:ev.requestId,answers,response})}); };
+    ok.onclick=()=>{ const answers={}; ev.questions.forEach((q,qi)=>{ const picked=[...form.querySelectorAll(`input[name=q${qi}]:checked`)].map(x=>x.value==='__other__'?(form.querySelector(`input[data-other=q${qi}]`).value.trim()||'其他'):x.value); if(picked.length) answers[q.question]=q.multiSelect?picked.join(', '):picked[0]; });
+      if(!Object.keys(answers).length){ alert('至少答一题，或点「你看着办」'); return; } finish(answers); };
+    skip.onclick=()=>finish({}, '你看着办');
+  }
+
+  function connect(){
+    if(es) es.close();
+    es=new EventSource('/api/events?s='+encodeURIComponent(sessionKey));
+    es.onmessage=(m)=>{ const ev=JSON.parse(m.data);
+      switch(ev.type){
+        case 'text_delta': appendText(ev.text); break;
+        case 'assistant_text': if(cur && cur.text) {} else appendText(ev.text); break;
+        case 'tool': toolChip(ev.name, ev.summary, true); break;
+        case 'tool_done': break;
+        case 'question': questionCard(ev); break;
+        case 'turn_end': cur=null; break;
+        case 'result': cur=null; setBusy(false); const r=document.createElement('div'); r.className='result'; r.textContent=`✓ 本轮结束 · ${ev.num_turns||'?'} 步 · ${ev.duration_s?ev.duration_s+'s':''} ${ev.cost?('· ≈$'+ev.cost):''}`; add(r); loadFiles(); break;
+        case 'error': cur=null; setBusy(false); errLine(ev.message); break;
+        case 'system': sysLine(ev.text); break;
+        case 'session_end': setBusy(false); cur=null; sysLine('会话已结束'); break;
+      }
+    };
+    es.onerror=()=>{ /* EventSource 自动重连 */ };
+  }
+
+  async function send(){
+    const text=input.value.trim(); if(!text||busy) return;
+    input.value=''; input.style.height='auto'; userMsg(text); setBusy(true); cur=null;
+    const r=await fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({s:sessionKey,text})});
+    if(!r.ok){ setBusy(false); errLine('发送失败：'+(await r.text())); }
+  }
+  sendBtn.onclick=send;
+  input.addEventListener('keydown',e=>{ if(e.key==='Enter'&&!e.shiftKey){ e.preventDefault(); send(); } });
+  input.addEventListener('input',()=>{ input.style.height='auto'; input.style.height=Math.min(input.scrollHeight,180)+'px'; });
+  stopBtn.onclick=()=>fetch('/api/interrupt',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({s:sessionKey})});
+  $('#newBtn').onclick=async()=>{ await fetch('/api/reset',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({s:sessionKey})}); sessionKey='s'+Date.now(); log.innerHTML=''; cur=null; setBusy(false); connect(); sysLine('新对话已开始'); };
+
+  async function loadStatus(){
+    const st=await (await fetch('/api/status')).json();
+    const a=$('#auth'); $('#wd').textContent=st.workdirShort;
+    if(st.loggedIn){ a.textContent='已登录 · '+(st.authMethod||''); a.className='pill ok'; }
+    else { a.textContent='未登录'; a.className='pill bad';
+      const b=$('#banner'); b.style.display=''; b.innerHTML='后端跑的是 Claude Code 同一套运行时，但本机 <code>claude</code> 命令行还没登录。在终端跑一次 <code>claude /login</code>（浏览器 OAuth，约 30 秒），然后刷新本页。不需要 API key。'; }
+    if(!st.skillFound){ const b=$('#banner'); b.style.display=''; b.innerHTML+=(b.innerHTML?'<br>':'')+'未在 <code>~/.claude/skills/prd-copilot</code> 找到 skill——请按 README 的安装命令建立 symlink。'; }
+  }
+  async function loadFiles(){
+    const list=await (await fetch('/api/files')).json(); const box=$('#files');
+    if(!list.length){ box.innerHTML='<div class="empty">还没有产出。第一份 PRD 生成后会出现在这里。</div>'; return; }
+    box.innerHTML=''; list.forEach(f=>{ const d=document.createElement('div'); d.className='file'; d.innerHTML=`<div class="n">${esc(f.name)}</div><div class="m">${(f.size/1000).toFixed(1)} KB · ${f.mtime}</div>`; d.onclick=()=>openFile(f.name); box.appendChild(d); });
+  }
+  async function openFile(name){
+    const t=await (await fetch('/api/file?name='+encodeURIComponent(name))).text();
+    $('#dname').textContent=name; $('#dbody').innerHTML=md(t.replace(/^---[\s\S]*?---\n/,'')); $('#dl').href='/api/file?name='+encodeURIComponent(name)+'&download=1'; $('#drawer').classList.add('open');
+  }
+  $('#dclose').onclick=()=>$('#drawer').classList.remove('open');
+  $('#drawer').addEventListener('click',e=>{ if(e.target.id==='drawer') $('#drawer').classList.remove('open'); });
+
+  loadStatus(); loadFiles(); connect();
+})();
+</script>
+</body>
+</html>

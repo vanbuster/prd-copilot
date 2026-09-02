@@ -1,0 +1,14 @@
+{
+  "name": "prd-copilot-console",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Local web console for the prd-copilot skill — thin chat UI over the Claude Agent SDK; the skill itself stays the single source of truth.",
+  "scripts": {
+    "start": "node server.mjs"
+  },
+  "engines": { "node": ">=20" },
+  "dependencies": {
+    "@anthropic-ai/claude-agent-sdk": "latest"
+  }
+}

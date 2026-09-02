@@ -104,7 +104,10 @@ git clone https://github.com/vanbuster/prd-copilot.git
 mkdir -p ~/.claude/skills && ln -s "$PWD/prd-copilot/skill" ~/.claude/skills/prd-copilot
 
 <span class="c"># 新开 Claude Code 会话，说：</span>
-把这个想法写成 PRD：&lt;你的一句话&gt;</div>
+把这个想法写成 PRD：&lt;你的一句话&gt;
+
+<span class="c"># 不想开终端？本地控制台（浏览器聊天壳，跑的是同一个 skill）</span>
+cd prd-copilot/app &amp;&amp; npm install &amp;&amp; npm start   <span class="c"># → http://127.0.0.1:4870</span></div>
     <div class="btns">
       <a class="btn btn-primary" href="https://github.com/vanbuster/prd-copilot">GitHub 仓库</a>
       <a class="btn btn-ghost" href="https://github.com/vanbuster/prd-copilot/blob/main/examples/2026-09-02_prd-copilot_v1.md">看一份真实产出</a>
@@ -199,8 +202,8 @@ ln -s "$PWD/prd-copilot/skill" ~/.agents/skills/prd-copilot</div>
 <section style="border-bottom:none">
   <div class="wrap">
     <div class="honest">
-      <h2 style="font-size:20px">为什么这个网站上没有"在线生成"按钮</h2>
-      <p>本项目的上一版就是 Web 应用（约 2000 行 Streamlit，保留在 <a href="https://github.com/vanbuster/prd-copilot/tree/main/legacy/streamlit-v1">legacy/</a>，tag v1.0.0 可跑）。审计结论：全部真实价值在提示词层，壳只会稀释它——独立评审、文件落盘、与你工作流的衔接，都只有在 agent 运行时里才成立。所以生成能力只以 skill 形态发布，本页只负责把你送到安装命令那一行。</p>
+      <h2 style="font-size:20px">为什么这里没有"在线生成"按钮——但有本地控制台</h2>
+      <p>本项目的上一版就是 Web 应用（约 2000 行 Streamlit，保留在 <a href="https://github.com/vanbuster/prd-copilot/tree/main/legacy/streamlit-v1">legacy/</a>，tag v1.0.0 可跑）。它的问题不是"是网页"，而是<b style="color:var(--ink)">把提示词复制了一份进应用里</b>——两份真相源必然漂移。所以云端在线生成不做；但如果你不想开终端，仓库里的 <code style="font-family:var(--mono);font-size:13px">app/</code> 是一个本地控制台：浏览器聊天壳 + Claude Agent SDK 直接运行同一个 skill，澄清问题弹卡片、三道门进度逐行显示、产出右栏预览。它不含一行提示词。</p>
     </div>
   </div>
 </section>
