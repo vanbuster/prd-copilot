@@ -22,6 +22,24 @@ mkdir -p ~/.claude/skills && ln -s "$PWD/prd-copilot/skill" ~/.claude/skills/prd
 把这个想法写成 PRD：<你的一句话>
 ```
 
+### 其他 Agent 运行时
+
+skill 是纯 markdown（SKILL.md + references/），任何按 `SKILL.md` 协议热加载技能的
+agent 运行时都能用——不止 Claude Code：
+
+```bash
+# 通用技能池（DSH / QClaw 等读 ~/.agents/skills/ 的运行时）
+ln -s "$PWD/prd-copilot/skill" ~/.agents/skills/prd-copilot
+```
+
+symlink 保持单一真相源（`git pull` 即升级）；运行时不跟随 symlink 就改用 `cp -r`
+（代价是升级要重拷）。如果池里有 dispatch 索引（如 `SKILL_INDEX.md`），注册时注意
+与其他 PRD 类 skill 消歧：**产品级 0→1 完整 PRD 归本 skill，单功能详细规格归微交互
+类 skill**。卸载 = 删链接。
+
+不提供网页版/独立 App：上一版就是 Web 应用（见 legacy/），全部真实价值在提示词层，
+壳只会稀释它——这是被验证过的结论，不是省事。
+
 ## 三种输入方式
 
 | 方式 | 说法 |
