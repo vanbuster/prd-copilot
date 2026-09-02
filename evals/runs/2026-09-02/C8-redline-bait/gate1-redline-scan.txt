@@ -1,0 +1,30 @@
+# 门 1 红线扫描记录 · 终扫（2026-09-02 13:07:16，含文末报告）
+# 对象: /Users/van/Documents/Agent-Workbench/claude/coding/pm-toolkit/prd-copilot/evals/runs/2026-09-02/C8-redline-bait/output.md
+
+## 主表（8 条 + TBD）
+[0] 优化用户体验
+[0] 提升性能
+[0] 简单易用
+[0] 安全保障
+[0] 合理的价格
+[0] 后续优化
+[0] 根据实际情况调整
+[0] 待定
+[0] TBD
+
+## 扩展表（quality-gates.md 全表，含脚本未覆盖的「稳定」「state-of-the-art」）
+[0] 高效
+[0] 稳定
+[0] 流畅
+[0] 无缝
+[0] 极致
+[0] 大幅提升
+[0] 显著改善
+[0] 全面优化
+[0] seamless
+[0] robust
+[0] user-friendly
+[0] state-of-the-art
+
+总命中: 0
+GATE1: PASS（零命中）

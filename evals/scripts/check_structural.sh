@@ -2,6 +2,8 @@
 # 结构机判：吃一个 PRD 文件，输出 L1/L2 可机判断言的逐条结果。零依赖（grep/wc/awk）。
 # 用法: ./check_structural.sh <prd.md>
 set -euo pipefail
+# 固定 locale：C locale 下 wc -m 退化为字节计数（中文 ×3 全误报）——首轮评测实测踩坑
+export LC_ALL=en_US.UTF-8
 [ $# -eq 1 ] && [ -f "$1" ] || { echo "用法: $0 <prd.md>" >&2; exit 2; }
 F="$1"; FAILS=0
 say() { printf '%-8s %s\n' "$1" "$2"; [ "$1" = "FAIL" ] && FAILS=$((FAILS+1)) || true; }
@@ -13,7 +15,7 @@ for w in "${REDLINES[@]}"; do
   if grep -q "$w" "$F"; then HIT=$((HIT+1)); echo "         红线命中: $w -> $(grep -n "$w" "$F" | head -1)"; fi
 done
 grep -q "TBD" "$F" && { HIT=$((HIT+1)); echo "         红线命中: TBD"; } || true
-[ "$HIT" -eq 0 ] && say PASS "红线主表 8 条零命中" || say FAIL "红线主表命中 $HIT 处"
+[ "$HIT" -eq 0 ] && say PASS "红线主表 8 条零命中" || say FAIL "红线主表命中 ${HIT} 处"
 
 # --- 空洞形容词扩展表 ---
 EXTRAS=("高效" "流畅" "无缝" "极致" "大幅提升" "显著改善" "全面优化" "seamless" "robust" "user-friendly")
@@ -21,11 +23,11 @@ XHIT=0
 for w in "${EXTRAS[@]}"; do
   if grep -q "$w" "$F"; then XHIT=$((XHIT+1)); echo "         扩展表命中: $w -> $(grep -n "$w" "$F" | head -1)"; fi
 done
-[ "$XHIT" -eq 0 ] && say PASS "空洞形容词扩展表零命中" || say FAIL "扩展表命中 $XHIT 处（引用语境可人工豁免）"
+[ "$XHIT" -eq 0 ] && say PASS "空洞形容词扩展表零命中" || say FAIL "扩展表命中 ${XHIT} 处 (引用语境可人工豁免)"
 
 # --- 模块数 ---
 MODS=$(grep -cE '^## [0-9]+\.' "$F" || true)
-{ [ "$MODS" -eq 11 ] || [ "$MODS" -eq 12 ]; } && say PASS "一级模块 $MODS 个（11 或 11+1）" || say FAIL "一级模块 $MODS 个（应为 11 或 12）"
+{ [ "$MODS" -eq 11 ] || [ "$MODS" -eq 12 ]; } && say PASS "一级模块 ${MODS} 个 (11 或 11+1)" || say FAIL "一级模块 ${MODS} 个 (应为 11 或 12)"
 
 # --- 编号连续性 ---
 grep -q '\*\*US1\*\*\|US1' "$F" && say PASS "US 编号存在（US1 起）" || say FAIL "未找到 US1"
@@ -33,11 +35,11 @@ grep -q 'F1' "$F" && say PASS "F 编号存在（F1 起）" || say FAIL "未找�
 
 # --- 验收标准 checkbox ---
 CB=$(grep -c '^\s*- \[ \]' "$F" || true)
-[ "$CB" -ge 10 ] && say PASS "验收 checkbox $CB 处（≥10）" || say FAIL "验收 checkbox 仅 $CB 处（应 ≥10）"
+[ "$CB" -ge 10 ] && say PASS "验收 checkbox ${CB} 处 (>=10)" || say FAIL "验收 checkbox 仅 ${CB} 处 (应 >=10)"
 
 # --- 字数 ---
 CHARS=$(wc -m < "$F" | tr -d ' ')
-{ [ "$CHARS" -ge 4000 ] && [ "$CHARS" -le 9000 ]; } && say PASS "字符数 $CHARS（正文目标 4000-6000，全文含报告放宽至 9000）" || say FAIL "字符数 $CHARS 超出范围"
+{ [ "$CHARS" -ge 4000 ] && [ "$CHARS" -le 9000 ]; } && say PASS "全文字符 ${CHARS} (4000-9000, UTF-8 wc -m)" || say FAIL "全文字符 ${CHARS} 超出 4000-9000"
 
 # --- frontmatter 关键字段 ---
 for k in title date version template ai_product; do
