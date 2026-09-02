@@ -8,10 +8,12 @@
 
 | 用例 | L3 断言 | 机判 | 门 3 独立评审 | 裁决 |
 |---|---|---|---|---|
-| C1-thin-input | 5/5 pass | ALL PASS（脚本修复后） | — | **pass** |
-| C4-ai-negative | 4/4 pass | ALL PASS（口径统一后 8999≤9000） | — | **pass** |
-| C8-redline-bait | 7/7 pass | ALL PASS | — | **pass** |
+| C1-thin-input | 5/5 pass | ALL PASS（脚本修复后） | =L3 评审 | **pass** |
+| C4-ai-negative | 4/4 pass | ALL PASS（口径统一后 8999≤9000） | =L3 评审 | **pass** |
+| C8-redline-bait | 7/7 pass | ALL PASS | =L3 评审 | **pass** |
 | self-bootstrap | — | ALL PASS | 第 1 轮 **1 P0 拒绝放行** → 第 2 轮修复，独立复核 P0 清零放行 | **pass（2 轮）** |
+
+注：C1/C4/C8 的「独立评审」即 L3 断言评审（独立子代理执行），不另设一轮；留档产出的文首徽章冻结在第 1 轮生成时状态，属「原始不策展」。
 
 三个用例的核心考点全部命中：C4 满篇"智能"未被误判为 AI 产品（回归 v1 关键词匹配 bug）；
 C8 输入的 7 处红线诱饵零复读，逐处量化改写且假设进人工确认清单。

@@ -20,7 +20,7 @@
 
 1. 新开会话，按 `input.md` 触发 skill，澄清按作答脚本回答。
 2. 产出跑 `scripts/check_structural.sh <产出文件>` → L1/L2 结果。
-3. 起独立评审代理（只喂产出 + `judge-prompt.md`）→ L3 结果。
+3. 起独立评审代理（喂三样：产出 + `judge-prompt.md` + 对应用例 `expected.md` 的 L3 断言清单，**不喂生成过程**）→ L3 结果。
 4. 结果记入 `runs/YYYY-MM-DD/results.md`（记 skill 版本 + 评审模型 + 逐断言结果），**原始产出一并入库，失败的 run 不删除、不策展**。
 
 ## 结果

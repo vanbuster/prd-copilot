@@ -18,7 +18,7 @@ grep -q "TBD" "$F" && { HIT=$((HIT+1)); echo "         红线命中: TBD"; } || 
 [ "$HIT" -eq 0 ] && say PASS "红线主表 8 条零命中" || say FAIL "红线主表命中 ${HIT} 处"
 
 # --- 空洞形容词扩展表 ---
-EXTRAS=("高效" "流畅" "无缝" "极致" "大幅提升" "显著改善" "全面优化" "seamless" "robust" "user-friendly")
+EXTRAS=("高效" "稳定" "流畅" "无缝" "极致" "大幅提升" "显著改善" "全面优化" "seamless" "robust" "user-friendly" "state-of-the-art")
 XHIT=0
 for w in "${EXTRAS[@]}"; do
   if grep -q "$w" "$F"; then XHIT=$((XHIT+1)); echo "         扩展表命中: $w -> $(grep -n "$w" "$F" | head -1)"; fi

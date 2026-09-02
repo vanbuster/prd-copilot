@@ -13,10 +13,10 @@
 
 ```bash
 git clone https://github.com/vanbuster/prd-copilot.git
-ln -s "$PWD/prd-copilot/skill" ~/.claude/skills/prd-copilot
+mkdir -p ~/.claude/skills && ln -s "$PWD/prd-copilot/skill" ~/.claude/skills/prd-copilot
 ```
 
-新开一个 Claude Code 会话，说：
+新开一个 Claude Code 会话，说（产出会落在当前目录 `prds/` 下）：
 
 ```
 把这个想法写成 PRD：<你的一句话>

@@ -6,10 +6,10 @@
 - [L1-2] 产出落盘于 `prds/`（或用户指定目录），文件名匹配 `YYYY-MM-DD_*_v1.md`
 - [L1-3] frontmatter 含 title/date/version/template/ai_product 字段
 - [L1-4] 11 个 `## N.` 模块齐全（无第 12 模块——见 L3-1）
-- [L1-5] 总字数 4000-6000（`wc -m`）
+- [L1-5] 全文字符数 4000-9000（UTF-8 `wc -m`，统一口径见 quality-gates 门 2 第 13 项）
 - [L1-6] 文末存在 `## 附：质量门报告`，文首存在质量门徽章行
 
-## L2 门禁断言（机判：check_structural.sh）
+## L2 门禁断言（L2-1/2 由 check_structural.sh 机判；L2-3~5 脚本仅部分覆盖，由评审代理核对补全）
 
 - [L2-1] 红线主表 8 条 grep 零命中
 - [L2-2] 空洞形容词扩展表 grep 零命中

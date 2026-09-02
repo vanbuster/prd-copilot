@@ -1,5 +1,5 @@
 # 门 1 红线扫描记录 · 终扫（2026-09-02 13:07:16，含文末报告）
-# 对象: /Users/van/Documents/Agent-Workbench/claude/coding/pm-toolkit/prd-copilot/evals/runs/2026-09-02/C8-redline-bait/output.md
+# 对象: evals/runs/2026-09-02/C8-redline-bait/output.md
 
 ## 主表（8 条 + TBD）
 [0] 优化用户体验
